@@ -2,18 +2,22 @@ enable_testing()
 
 # find packages
 
+list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR})
+list(APPEND REQUIRED_LIBRARIES photocalib)
+
 find_package(GTest REQUIRED)
 list(APPEND REQUIRED_INCLUDE_DIRS ${GTEST_INCLUDE_DIRS})
 list(APPEND REQUIRED_LIBRARIES ${GTEST_LIBRARIES})
 list(APPEND REQUIRED_LIBRARIES pthread)
 
-list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
-list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR})
-
 # define c++ sources
 
 set(CPP_SOURCES
   camera_test.cpp
+  exception_test.cpp
+  polynomial_response_test.cpp
+  response_test.cpp
 )
 
 # build library

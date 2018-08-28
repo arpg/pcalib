@@ -7,6 +7,10 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
 list(APPEND REQUIRED_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/include)
 
+find_package(Eigen3 REQUIRED)
+list(APPEND REQUIRED_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+list(APPEND REQUIRED_LIBRARIES ${EIGEN3_LIBRARIES})
+
 find_package(GFlags REQUIRED)
 list(APPEND REQUIRED_INCLUDE_DIRS ${GFlags_INCLUDE_DIRS})
 list(APPEND REQUIRED_LIBRARIES ${GFlags_LIBRARIES})
@@ -33,7 +37,11 @@ set(CPP_CONFIGS
 set(CPP_HEADER_DIR include/photocalib)
 
 set(CPP_HEADERS
+  ${CPP_HEADER_DIR}/calibration.h
   ${CPP_HEADER_DIR}/camera.h
+  ${CPP_HEADER_DIR}/exception.h
+  ${CPP_HEADER_DIR}/polynomial_response.h
+  ${CPP_HEADER_DIR}/response.h
 )
 
 # define c++ sources
@@ -41,7 +49,10 @@ set(CPP_HEADERS
 set(CPP_SOURCE_DIR src)
 
 set(CPP_SOURCES
+  ${CPP_SOURCE_DIR}/calibration.cpp
   ${CPP_SOURCE_DIR}/camera.cpp
+  ${CPP_SOURCE_DIR}/polynomial_response.cpp
+  ${CPP_SOURCE_DIR}/response.cpp
 )
 
 # build library
