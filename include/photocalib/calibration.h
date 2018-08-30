@@ -1,24 +1,18 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include <photocalib/response.h>
+#include <photocalib/vignetting.h>
 
 namespace photocalib
 {
 
-class Response;
-class Vignetting;
-
-class Calibration
+struct Calibration
 {
-  public:
+  std::vector<std::shared_ptr<Response>> responses;
 
-    Calibration();
-
-  protected:
-
-    std::shared_ptr<Response> responses_;
-
-    std::shared_ptr<Vignetting> vignetting_;
+  std::shared_ptr<Vignetting> vignetting;
 };
 
 } // namespace photocalib

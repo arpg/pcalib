@@ -8,7 +8,6 @@ namespace testing
 
 TEST(Camera, Constructor)
 {
-  Camera camera;
 }
 
 } // namespace testing
