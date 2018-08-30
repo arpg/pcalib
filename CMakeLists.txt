@@ -66,6 +66,9 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/response_problem_builder.h
   ${CPP_HEADER_DIR}/response_problem_solver.h
   ${CPP_HEADER_DIR}/vignetting.h
+  ${CPP_HEADER_DIR}/vignetting_problem.h
+  ${CPP_HEADER_DIR}/vignetting_problem_builder.h
+  ${CPP_HEADER_DIR}/vignetting_problem_solver.h
 )
 
 # define c++ sources
@@ -79,6 +82,8 @@ set(CPP_SOURCES
   ${CPP_SOURCE_DIR}/polynomial_response.cpp
   ${CPP_SOURCE_DIR}/response_problem_builder.cpp
   ${CPP_SOURCE_DIR}/response_problem_solver.cpp
+  ${CPP_SOURCE_DIR}/vignetting_problem_builder.cpp
+  ${CPP_SOURCE_DIR}/vignetting_problem_solver.cpp
 )
 
 # add hal camera

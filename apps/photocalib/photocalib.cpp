@@ -1,5 +1,8 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <calibu/target/GridDefinitions.h>
+#include <calibu/target/TargetGridDot.h>
+#include <calibu/target/RandomGrid.h>
 #include <pangolin/pangolin.h>
 #include <photocalib/photocalib.h>
 
@@ -10,6 +13,14 @@ DEFINE_bool(response, true, "enable response calibration");
 DEFINE_bool(vignetting, true, "enable vignetting calibration");
 DEFINE_double(inlier_thresh, 0.1, "maximum response error for inliers");
 DEFINE_int32(ransac_iters, 1000, "number of ransac iterations");
+
+DEFINE_int32(grid_height, 0, "");
+DEFINE_int32(grid_width, 0, "");
+DEFINE_int64(grid_seed, 0, "");
+DEFINE_double(grid_large_radius, 0.0, "");
+DEFINE_double(grid_small_radius, 0.0, "");
+DEFINE_double(grid_spacing, 0.0, "");
+DEFINE_string(grid_preset, "", "");
 
 using namespace photocalib;
 
@@ -253,6 +264,8 @@ int main(int argc, char** argv)
       display.Activate();
       texture.RenderToViewportFlipY();
       pangolin::FinishFrame();
+
+      // TODO: vignetting calibration
     }
   }
 

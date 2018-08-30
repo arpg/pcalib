@@ -1,1 +1,2 @@
 add_subdirectory(photocalib)
+add_subdirectory(vignetting)
