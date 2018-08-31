@@ -389,7 +389,7 @@ int main(int argc, char** argv)
     LOG(INFO) << "Correspondences: " << problem->correspondences.size();
 
     std::shared_ptr<PolynomialResponse> response;
-    response = std::make_shared<PolynomialResponse>(4);
+    response = std::make_shared<PolynomialResponse>(3);
 
     cv::Mat a, b;
     cv::resize(images[2].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);

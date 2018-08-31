@@ -33,6 +33,19 @@ int main(int argc, char** argv)
   PHOTOCALIB_ASSERT_MSG(!FLAGS_cam.empty(), "missing HAL camera uri");
   PHOTOCALIB_ASSERT_MSG(!FLAGS_calib.empty(), "missing camera calibration");
 
+  typedef Eigen::Matrix<unsigned char, 3, 1> Pixel;
+
+  const double max_color = 255.0;
+  std::vector<Pixel> colormap(256);
+
+  for (size_t i = 0; i < colormap.size(); ++i)
+  {
+    const double t = double(i) / (colormap.size() - 1);
+    colormap[i][0] = std::max(0.0, std::min(max_color, 2.1 * max_color - max_color * std::exp(std::pow(t - 0.75, 2) / 0.15)));
+    colormap[i][1] = std::max(0.0, std::min(max_color, 2.1 * max_color - max_color * std::exp(std::pow(t - 0.50, 2) / 0.15)));
+    colormap[i][2] = std::max(0.0, std::min(max_color, 2.1 * max_color - max_color * std::exp(std::pow(t - 0.25, 2) / 0.15)));
+  }
+
   // create calibu target
 
   Eigen::MatrixXi grid;
@@ -107,7 +120,7 @@ int main(int argc, char** argv)
   const Eigen::Vector2d grid_radius_sizes(grid_small_radius, grid_large_radius);
   Eigen::Map<const Eigen::VectorXi> grid_radius_map(grid_t.data(), grid.size());
 
-  const double radius_scale = 1.35;
+  const double radius_scale = 1.5;
 
   for (int i = 0; i < conic_count; ++i)
   {
@@ -223,33 +236,53 @@ int main(int argc, char** argv)
   upper_stats_display.AddDisplay(target_display);
 
   pangolin::View& vignetting_display = pangolin::Display("vignetting");
-  vignetting_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
-  vignetting_display.SetBounds(0.0, 1.0, 0.0, 0.5, image_aspect_ratio);
+  vignetting_display.SetLock(pangolin::LockLeft, pangolin::LockTop);
+  vignetting_display.SetBounds(0.5, 1.0, 0.0, 1.0, image_aspect_ratio);
   lower_stats_display.AddDisplay(vignetting_display);
 
   pangolin::View& coverage_display = pangolin::Display("coverage");
-  coverage_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
-  coverage_display.SetBounds(0.0, 1.0, 0.5, 1.0, image_aspect_ratio);
+  coverage_display.SetLock(pangolin::LockRight, pangolin::LockBottom);
+  coverage_display.SetBounds(0.0, 0.5, 0.0, 1.0, image_aspect_ratio);
   lower_stats_display.AddDisplay(coverage_display);
 
   pangolin::GlTexture camera_texture(width, height, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
   pangolin::GlTexture target_texture(twidth, theight, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
-  pangolin::GlTexture vignetting_texture(width, height, GL_RED, false, 0, GL_RED, GL_UNSIGNED_BYTE);
-  pangolin::GlTexture converage_texture(width, height, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  pangolin::GlTexture vignetting_texture(width, height, GL_RGB, false, 0, GL_RED, GL_UNSIGNED_BYTE);
+  pangolin::GlTexture coverage_texture(width, height, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+
+  cv::Mat vig_values(height, width, CV_32FC1);
+  cv::Mat vig_weights(height, width, CV_32FC1);
+
+  vig_values = cv::Scalar(1);
+  vig_weights = cv::Scalar(0);
 
   while (!pangolin::ShouldQuit())
   {
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // capture raw image
+
     raw_camera->Capture(images);
+
+    // convert image to grayscale
+
     cv::cvtColor(images[0], raw_image, CV_BGR2GRAY);
+
+    // undistort raw image
 
     unsigned char* dst = undistort_image.data;
     const unsigned char* src = raw_image.data;
     calibu::Rectify<unsigned char>(undistort_lookup, src, dst, width, height);
 
+    // process rectified image for conic extraction
+
     processing.Process(undistort_image.data, width, height, pitch);
+
+    // find conics in rectified image
+
     finder.Find(processing);
+
+    // detect target from found conics
 
     target_found = target->FindTarget(processing, finder.Conics(), ellipse_map);
 
@@ -269,6 +302,8 @@ int main(int argc, char** argv)
     const int ransac_iterations = 0;
     const float ransac_tolerance = 0.0f;
 
+    // compute current world-to-camera pose as per rectified image
+
     calibu::PosePnPRansac(rig->cameras_[0], ellipses, target->Circles3D(),
         ellipse_map, ransac_iterations, ransac_tolerance, &Tcw);
 
@@ -287,6 +322,114 @@ int main(int argc, char** argv)
     reference_image = cv::Scalar(0);
 
     cv::Mat new_mask = target_mask.clone();
+
+    // // AVERAGING (ASSUMED REFLECTANCE) TODO: raw image, raw image mask
+    //
+    // // AVERAGING (UNKNOWN REFLECTANCE) TODO: raw image, raw image mask
+    //   // reference world coords, reference image
+
+    // MODEL TODO: Tuple(raw image coords, reference image coords, irradiance)
+      // - multiple reference images (known locations) and their irradiance
+      // - additionally their raw image coords
+      // - store Vector3f (irradiance, u, v)
+
+    const Eigen::Matrix3d& K = rig->cameras_[0]->K();
+    Eigen::Matrix3d Kinv = Eigen::Matrix3d::Identity();
+    Kinv(0, 0) = 1 / K(0, 0);
+    Kinv(1, 1) = 1 / K(1, 1);
+    Kinv(0, 2) = -K(0, 2) * Kinv(0, 0);
+    Kinv(1, 2) = -K(1, 2) * Kinv(1, 1);
+
+    for (int y = 0; y < images[0].rows; ++y)
+    {
+      for (int x = 0; x < images[0].cols; ++x)
+      {
+        const Pixel& pixel = images[0].at<Pixel>(y, x);
+        const Eigen::Vector3f intensity = pixel.cast<float>() / 255;
+
+        Eigen::Vector3f irradiance;
+        irradiance[0] = response(intensity[0]);
+        irradiance[1] = response(intensity[1]);
+        irradiance[2] = response(intensity[3]);
+
+        const Eigen::Vector3d uvw = Eigen::Vector3d(x + 0.5, y + 0.5, 1);
+        const Eigen::Vector3d Xcp = Kinv * uvw;
+        const Eigen::Vector3d Xwp = Tcw.inverse() * Xcp;
+        const Eigen::Vector3d origin = Tcw.inverse().translation();
+        const Eigen::Vector3d dir = Xwp - origin;
+
+        if (std::abs(dir[2]) < 1E-8)
+        {
+          Pixel new_pixel = pixel;
+          new_pixel[0] = std::min(255, new_pixel[0] + 75);
+          images[0].at<Pixel>(y, x) = new_pixel;
+          continue;
+        }
+
+        const double t = -origin[2] / dir[2];
+        const Eigen::Vector3d p = origin + t * dir;
+
+        if (p[0] < 0 || p[0] > target_physical_size[0] ||
+            p[1] < 0 || p[1] > target_physical_size[1])
+        {
+          Pixel new_pixel = pixel;
+          new_pixel[0] = std::min(255, new_pixel[0] + 75);
+          images[0].at<Pixel>(y, x) = new_pixel;
+          continue;
+        }
+
+        const int tx = p[0] * target_scaling[0];
+        const int ty = p[1] * target_scaling[1];
+        const bool mask = target_mask.at<unsigned char>(ty, tx);
+
+        if (!mask)
+        {
+          Pixel new_pixel = pixel;
+          new_pixel[0] = std::min(255, new_pixel[0] + 75);
+          images[0].at<Pixel>(y, x) = new_pixel;
+          continue;
+        }
+
+        float value = 0.0;
+        int count = 0;
+
+        if (pixel[0] > 2 && pixel[0] < 253)
+        {
+          value += irradiance[0];
+          ++count;
+        }
+
+        if (pixel[1] > 2 && pixel[1] < 253)
+        {
+          value += irradiance[1];
+          ++count;
+        }
+
+        if (pixel[2] > 2 && pixel[2] < 253)
+        {
+          value += irradiance[2];
+          ++count;
+        }
+
+        if (count > 0)
+        {
+          value /= count;
+
+          const float old_value = vig_values.at<float>(y, x);
+          const float old_weight = vig_weights.at<float>(y, x);
+
+          const float new_weight = old_weight + 1;
+          const float new_value = (old_weight * old_value + value) / new_weight;
+
+
+          vig_values.at<float>(y, x) = new_value;
+          vig_weights.at<float>(y, x) = new_weight;
+        }
+      }
+    }
+
+
+    // for each pixel in the target reference image
 
     for (int y = 0; y < reference_image.rows; ++y)
     {
@@ -398,7 +541,52 @@ int main(int argc, char** argv)
     target_display.Activate();
     unsigned char* tdata = tmat.data;
     target_texture.Upload(tdata, GL_BGR, GL_UNSIGNED_BYTE);
-    target_texture.RenderToViewport();
+    target_texture.RenderToViewportFlipXFlipY();
+
+    {
+      cv::Mat mat;
+      vig_values.convertTo(mat, CV_8UC1, 255.0);
+
+      double vmin;
+      double vmax;
+      cv::minMaxLoc(mat, &vmin, &vmax);
+
+      cv::cvtColor(mat, mat, CV_GRAY2BGR);
+
+      for (int y = 0; y < mat.rows; ++y)
+      {
+        for (int x = 0; x < mat.cols; ++x)
+        {
+          mat.at<Pixel>(y, x)[0] = 255.0 * mat.at<Pixel>(y, x)[0] / vmax;
+          mat.at<Pixel>(y, x)[1] = 255.0 * mat.at<Pixel>(y, x)[1] / vmax;
+          mat.at<Pixel>(y, x)[2] = 255.0 * mat.at<Pixel>(y, x)[2] / vmax;
+        }
+      }
+
+      vignetting_display.Activate();
+      unsigned char* data = mat.data;
+      vignetting_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      vignetting_texture.RenderToViewportFlipY();
+    }
+
+    {
+      cv::Mat mat;
+      vig_weights.convertTo(mat, CV_8UC1, 0.255);
+      cv::cvtColor(mat, mat, CV_GRAY2BGR);
+
+      for (int y = 0; y < mat.rows; ++y)
+      {
+        for (int x = 0; x < mat.cols; ++x)
+        {
+          mat.at<Pixel>(y, x) = colormap[mat.at<Pixel>(y, x)[0]];
+        }
+      }
+
+      coverage_display.Activate();
+      unsigned char* data = mat.data;
+      coverage_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      coverage_texture.RenderToViewportFlipY();
+    }
 
     pangolin::FinishFrame();
   }
