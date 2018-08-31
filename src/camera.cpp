@@ -102,7 +102,7 @@ void Camera::CreateExposureTarget()
 void Camera::CreateExposureController()
 {
   exposure_controller_.set_setpoint(exposure_target_.intensity);
-  exposure_controller_.set_proportional_gain(0.20);
+  exposure_controller_.set_proportional_gain(0.25);
   exposure_controller_.set_integral_gain(0.02);
   exposure_controller_.set_integral_delay(4);
   exposure_controller_.set_upper_bound(500);

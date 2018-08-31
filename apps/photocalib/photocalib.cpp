@@ -11,7 +11,7 @@ DEFINE_string(pcalib, "", "input photometric calibration file");
 DEFINE_string(output, "pcalib.xml", "output photometric calibration file");
 DEFINE_bool(response, true, "enable response calibration");
 DEFINE_bool(vignetting, true, "enable vignetting calibration");
-DEFINE_double(inlier_thresh, 0.025, "maximum response error for inliers");
+DEFINE_double(inlier_thresh, 0.02, "maximum response error for inliers");
 DEFINE_int32(ransac_iters, 10000, "number of ransac iterations");
 
 DEFINE_int32(grid_height, 0, "");
@@ -24,7 +24,18 @@ DEFINE_string(grid_preset, "", "");
 
 using namespace photocalib;
 
+Image aa;
+Image bb;
+int eiter = 0;
+double emax = 0.0;
+
 pangolin::DataLog result_log;
+pangolin::View* camera_display;
+pangolin::View* initial_display;
+pangolin::View* current_display;
+std::shared_ptr<pangolin::GlTexture> camera_texture;
+std::shared_ptr<pangolin::GlTexture> initial_texture;
+std::shared_ptr<pangolin::GlTexture> current_texture;
 
 inline void ResponseCallback(const PolynomialResponse& response)
 {
@@ -36,6 +47,96 @@ inline void ResponseCallback(const PolynomialResponse& response)
     const double irradiance = response(intensity);
     result_log.Log(irradiance);
   }
+
+  cv::Mat cc = aa.data().clone();
+  cc = cv::Scalar(0);
+
+  const double ae = aa.exposure();
+  const double be = bb.exposure();
+  const double er = be / ae;
+
+  for (int y = 0; y < cc.rows; ++y)
+  {
+    for (int x = 0; x < cc.cols; ++x)
+    {
+      Eigen::Vector3f error(0, 0, 0);
+      const Eigen::Vector3f ap = aa.data().at<Eigen::Vector3f>(y, x);
+      const Eigen::Vector3f bp = bb.data().at<Eigen::Vector3f>(y, x);
+
+      if (ap[0] > bp[0] || ap[1] > bp[1] || ap[2] > bp[2]) continue;
+
+      if (ap[0] > 0.1 && ap[0] < 0.99 && bp[0] > 0.1 && bp[0] < 0.99)
+      {
+        const double ai = response(ap[0]);
+        const double bi = response(bp[0]);
+        const double ir = bi / ai;
+        error[0] = std::abs(ir - er);
+      }
+
+      if (ap[1] > 0.1 && ap[1] < 0.99 && bp[1] > 0.1 && bp[1] < 0.99)
+      {
+        const double ai = response(ap[1]);
+        const double bi = response(bp[1]);
+        const double ir = bi / ai;
+        error[1] = std::abs(ir - er);
+      }
+
+      if (ap[2] > 0.1 && ap[2] < 0.99 && bp[2] > 0.1 && bp[2] < 0.99)
+      {
+        const double ai = response(ap[2]);
+        const double bi = response(bp[2]);
+        const double ir = bi / ai;
+        error[2] = std::abs(ir - er);
+      }
+
+      cc.at<Eigen::Vector3f>(y, x) = error;
+    }
+  }
+
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  if (eiter == 0)
+  {
+    double cmin;
+    cv::minMaxLoc(cc, &cmin, &emax);
+    // cc = cc / emax;
+
+    cv::Mat dd;
+    cc.convertTo(dd, CV_8UC3, 255.0);
+
+    const unsigned char* data = dd.data;
+
+    initial_display->Activate();
+    initial_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    initial_texture->RenderToViewportFlipY();
+
+    current_display->Activate();
+    current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    current_texture->RenderToViewportFlipY();
+
+    ++eiter;
+  }
+  else
+  {
+    // cc = cc / emax;
+
+    cv::Mat dd;
+    cc.convertTo(dd, CV_8UC3, 255.0);
+
+    current_display->Activate();
+    const unsigned char* data = dd.data;
+    current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    current_texture->RenderToViewportFlipY();
+  }
+
+  camera_display->Activate();
+  camera_texture->RenderToViewportFlipY();
+
+  initial_display->Activate();
+  initial_texture->RenderToViewportFlipY();
+
+  current_display->Activate();
+  current_texture->RenderToViewportFlipY();
 
   pangolin::FinishFrame();
 }
@@ -76,15 +177,43 @@ int main(int argc, char** argv)
 
   const std::vector<size_t> channel_order = sort_indexes(channel_means);
 
-  pangolin::CreateGlutWindowAndBind("Photocalib", 1400, 600);
+  pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
 
-  pangolin::View& display = pangolin::Display("camera");
-  display.SetLock(pangolin::LockLeft, pangolin::LockTop);
-  display.SetBounds(0.0, 1.0, 0.0, 2.0 / 3.0, 640.0 / 480.0);
+  camera_display = &pangolin::Display("camera");
+  camera_display->SetLock(pangolin::LockLeft, pangolin::LockTop);
+  camera_display->SetBounds(0.0, 1.0, 0.0, 2.0 / 3.0, 640.0 / 480.0);
+
+  pangolin::View& stats_display = pangolin::Display("stats");
+  stats_display.SetLock(pangolin::LockRight, pangolin::LockTop);
+  stats_display.SetBounds(0.0, 1.0, 2.0 / 3.0, 1.0);
+
+  pangolin::View& upper_stats_display = pangolin::Display("upper stats");
+  upper_stats_display.SetLock(pangolin::LockLeft, pangolin::LockTop);
+  upper_stats_display.SetBounds(0.75, 1.0, 0.0, 1.0);
+  stats_display.AddDisplay(upper_stats_display);
+
+  pangolin::View& lower_stats_display = pangolin::Display("lower stats");
+  lower_stats_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
+  lower_stats_display.SetBounds(0.0, 0.75, 0.0, 1.0);
+  stats_display.AddDisplay(lower_stats_display);
+
+  initial_display = &pangolin::Display("initial error");
+  initial_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  initial_display->SetBounds(0.5, 1.0, 0.0, 0.5, 640.0 / 480.0);
+  lower_stats_display.AddDisplay(*initial_display);
+
+  current_display = &pangolin::Display("current error");
+  current_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  current_display->SetBounds(0.5, 1.0, 0.5, 1.0, 640.0 / 480.0);
+  lower_stats_display.AddDisplay(*current_display);
+
+  pangolin::GlText text;
 
   const int w = image.width();
   const int h = image.height();
-  pangolin::GlTexture texture(w, h, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  camera_texture = std::make_shared<pangolin::GlTexture>(w, h, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  initial_texture = std::make_shared<pangolin::GlTexture>(160, 120, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  current_texture = std::make_shared<pangolin::GlTexture>(160, 120, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
 
   int target_index = 0;
   std::vector<ExposureTarget> targets;
@@ -115,10 +244,11 @@ int main(int argc, char** argv)
   const double plot_length = 1.5 * targets.size() * max_fuse_count;
   pangolin::Plotter exposure_plotter(&exposure_log, 0, plot_length, 0, 350);
   pangolin::View& exposure_display = pangolin::Display("exposure_plot");
-  exposure_display.SetBounds(0.25, 1.0, 0.6, 1.0, 4.0);
+  exposure_display.SetBounds(0.0, 1.0, 0.0, 1.0);
   exposure_display.SetLock(pangolin::LockRight, pangolin::LockTop);
   exposure_display.AddDisplay(exposure_plotter);
   exposure_plotter.Track("$i");
+  upper_stats_display.AddDisplay(exposure_display);
 
   std::vector<std::string> result_labels;
   result_labels.push_back("response");
@@ -126,9 +256,10 @@ int main(int argc, char** argv)
 
   pangolin::Plotter result_plotter(&result_log, 0, 100, 0, 1.1, 25);
   pangolin::View& result_display = pangolin::Display("result_plot");
-  result_display.SetBounds(0.0, 0.4, 0.6, 1.0, 0.91);
-  result_display.SetLock(pangolin::LockRight, pangolin::LockTop);
+  result_display.SetBounds(0.0, 0.5, 0.0, 1.0);
+  result_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
   result_display.AddDisplay(result_plotter);
+  lower_stats_display.AddDisplay(result_display);
 
   for (int i = 0; i < 100; ++i)
   {
@@ -249,10 +380,17 @@ int main(int argc, char** argv)
     }
 
     glClear(GL_COLOR_BUFFER_BIT);
-    display.Activate();
+    camera_display->Activate();
     unsigned char* data = image.data().data;
-    texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-    texture.RenderToViewportFlipY();
+    camera_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    camera_texture->RenderToViewportFlipY();
+
+    initial_display->Activate();
+    initial_texture->RenderToViewportFlipY();
+
+    current_display->Activate();
+    current_texture->RenderToViewportFlipY();
+
     pangolin::FinishFrame();
 
     last_exposure = exposure;
@@ -268,6 +406,17 @@ int main(int argc, char** argv)
 
     std::shared_ptr<PolynomialResponse> response;
     response = std::make_shared<PolynomialResponse>(3);
+
+    cv::Mat a, b;
+    cv::resize(images[2].data(), a, cv::Size(160, 120), 0, 0, CV_INTER_NN);
+    cv::resize(images[3].data(), b, cv::Size(160, 120), 0, 0, CV_INTER_NN);
+
+    aa = Image(a);
+    bb = Image(b);
+    aa.set_exposure(images[2].exposure());
+    bb.set_exposure(images[3].exposure());
+
+    ResponseCallback(*response);
 
     ResponseProblemSolver<PolynomialResponse> solver(problem);
     solver.set_inlier_threshold(FLAGS_inlier_thresh);
@@ -293,8 +442,15 @@ int main(int argc, char** argv)
     while (!pangolin::ShouldQuit())
     {
       glClear(GL_COLOR_BUFFER_BIT);
-      display.Activate();
-      texture.RenderToViewportFlipY();
+      camera_display->Activate();
+      camera_texture->RenderToViewportFlipY();
+
+      initial_display->Activate();
+      initial_texture->RenderToViewportFlipY();
+
+      current_display->Activate();
+      current_texture->RenderToViewportFlipY();
+
       pangolin::FinishFrame();
 
       // TODO: vignetting calibration

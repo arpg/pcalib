@@ -42,9 +42,9 @@ void ResponseProblemBuilder::Build(ResponseProblem& problem)
       const Image& image_j = images_[j];
       correspondence.b.exposure = image_j.exposure();
 
-      for (int y = 0; y < image_i.height(); y += 8)
+      for (int y = 0; y < image_i.height(); y += 4)
       {
-        for (int x = 0; x < image_i.height(); x += 8)
+        for (int x = 0; x < image_i.height(); x += 4)
         {
           const Eigen::Vector3f a = image_i.data().at<Eigen::Vector3f>(y, x);
           const Eigen::Vector3f b = image_j.data().at<Eigen::Vector3f>(y, x);

@@ -147,6 +147,9 @@ int main(int argc, char** argv)
   // programmatrically create new pcalib camera interface
     // myself for now, use hal later once integrated
 
+  PolynomialResponse response(3);
+  response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
+
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
   const int pitch = width * sizeof(unsigned char);
@@ -167,12 +170,15 @@ int main(int argc, char** argv)
 
   cv::Mat reference_image(target_reference_height, target_reference_width, CV_32FC1);
 
+  cv::Mat vignetting(height, width, CV_32FC1);
+  cv::Mat weights(height, width, CV_32FC1);
+
+  vignetting = cv::Scalar(1);
+  weights = cv::Scalar(0);
+
   while (true)
   {
     raw_camera->Capture(images);
-
-    // TODO: photometric rectification
-
     cv::cvtColor(images[0], raw_image, CV_BGR2GRAY);
 
     unsigned char* dst = undistort_image.data;
@@ -272,15 +278,22 @@ int main(int argc, char** argv)
           const Eigen::Vector2d w1 = undistort_uv - (pixel.cast<double>() + Eigen::Vector2d(0.5, 0.5));
           const Eigen::Vector2d w0 = Eigen::Vector2d(1, 1) - w1;
 
-          double intensity = 0;
-          // TODO: undistort image should be float pixel values
-          intensity += w0[1] * w0[0] * undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 0);
-          intensity += w0[1] * w1[0] * undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 1);
-          intensity += w1[1] * w0[0] * undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 0);
-          intensity += w1[1] * w1[0] * undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 1);
+          const unsigned char int00 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 0);
+          const unsigned char int01 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 1);
+          const unsigned char int10 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 0);
+          const unsigned char int11 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 1);
 
-          // TODO: should not need to rescale once raw image uses float pixel
-          reference_image.at<float>(y, x) = (intensity / 255.0);
+          const float irr00 = response(int00 / 255.0);
+          const float irr01 = response(int01 / 255.0);
+          const float irr10 = response(int10 / 255.0);
+          const float irr11 = response(int11 / 255.0);
+
+          double irradiance = 0;
+          irradiance += w0[1] * w0[0] * irr00;
+          irradiance += w0[1] * w1[0] * irr01;
+          irradiance += w1[1] * w0[0] * irr10;
+          irradiance += w1[1] * w1[0] * irr11;
+          reference_image.at<float>(y, x) = irradiance;
         }
         else
         {
@@ -307,7 +320,7 @@ int main(int argc, char** argv)
     cv::cvtColor(cref, cref, CV_GRAY2BGR);
 
     cv::imshow("Live Image", undistort_image);
-    cv::imshow("Project Image", final + 0.75 * cref);
+    cv::imshow("Project Image", final + 0.9 * cref);
     const int key = cv::waitKey(33);
     if (key == 27) break;
   }
