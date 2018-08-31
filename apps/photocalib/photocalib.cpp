@@ -11,8 +11,9 @@ DEFINE_string(pcalib, "", "input photometric calibration file");
 DEFINE_string(output, "pcalib.xml", "output photometric calibration file");
 DEFINE_bool(response, true, "enable response calibration");
 DEFINE_bool(vignetting, true, "enable vignetting calibration");
-DEFINE_double(inlier_thresh, 0.02, "maximum response error for inliers");
-DEFINE_int32(ransac_iters, 10000, "number of ransac iterations");
+DEFINE_double(inlier_thresh, 0.01, "maximum response error for inliers");
+DEFINE_int32(ransac_iters, 5000, "number of ransac iterations");
+DEFINE_int32(keyframe_images, 30, "number of images use for keyframe average");
 
 DEFINE_int32(grid_height, 0, "");
 DEFINE_int32(grid_width, 0, "");
@@ -97,36 +98,21 @@ inline void ResponseCallback(const PolynomialResponse& response)
 
   if (eiter == 0)
   {
+    cv::Mat dd;
     double cmin;
     cv::minMaxLoc(cc, &cmin, &emax);
-    // cc = cc / emax;
-
-    cv::Mat dd;
     cc.convertTo(dd, CV_8UC3, 255.0);
-
     const unsigned char* data = dd.data;
-
-    initial_display->Activate();
     initial_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-    initial_texture->RenderToViewportFlipY();
-
-    current_display->Activate();
     current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-    current_texture->RenderToViewportFlipY();
-
     ++eiter;
   }
   else
   {
-    // cc = cc / emax;
-
     cv::Mat dd;
     cc.convertTo(dd, CV_8UC3, 255.0);
-
-    current_display->Activate();
     const unsigned char* data = dd.data;
     current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-    current_texture->RenderToViewportFlipY();
   }
 
   camera_display->Activate();
@@ -180,7 +166,7 @@ int main(int argc, char** argv)
   pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
 
   camera_display = &pangolin::Display("camera");
-  camera_display->SetLock(pangolin::LockLeft, pangolin::LockTop);
+  camera_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
   camera_display->SetBounds(0.0, 1.0, 0.0, 2.0 / 3.0, 640.0 / 480.0);
 
   pangolin::View& stats_display = pangolin::Display("stats");
@@ -199,21 +185,19 @@ int main(int argc, char** argv)
 
   initial_display = &pangolin::Display("initial error");
   initial_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
-  initial_display->SetBounds(0.5, 1.0, 0.0, 0.5, 640.0 / 480.0);
+  initial_display->SetBounds(2.0 / 3.0, 1.0, 0.0, 0.5, 640.0 / 480.0);
   lower_stats_display.AddDisplay(*initial_display);
 
   current_display = &pangolin::Display("current error");
   current_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
-  current_display->SetBounds(0.5, 1.0, 0.5, 1.0, 640.0 / 480.0);
+  current_display->SetBounds(2.0 / 3.0, 1.0, 0.5, 1.0, 640.0 / 480.0);
   lower_stats_display.AddDisplay(*current_display);
-
-  pangolin::GlText text;
 
   const int w = image.width();
   const int h = image.height();
   camera_texture = std::make_shared<pangolin::GlTexture>(w, h, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
-  initial_texture = std::make_shared<pangolin::GlTexture>(160, 120, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
-  current_texture = std::make_shared<pangolin::GlTexture>(160, 120, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  initial_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  current_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
 
   int target_index = 0;
   std::vector<ExposureTarget> targets;
@@ -231,7 +215,7 @@ int main(int argc, char** argv)
   int last_change = 0;
   double last_exposure = 0;
 
-  const int max_fuse_count = 50;
+  const int max_fuse_count = FLAGS_keyframe_images;
   bool fusing = false;
   int fuse_count = 0;
 
@@ -256,7 +240,7 @@ int main(int argc, char** argv)
 
   pangolin::Plotter result_plotter(&result_log, 0, 100, 0, 1.1, 25);
   pangolin::View& result_display = pangolin::Display("result_plot");
-  result_display.SetBounds(0.0, 0.5, 0.0, 1.0);
+  result_display.SetBounds(0.0, 2.0 / 3.0, 0.0, 1.0);
   result_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
   result_display.AddDisplay(result_plotter);
   lower_stats_display.AddDisplay(result_display);
@@ -405,11 +389,11 @@ int main(int argc, char** argv)
     LOG(INFO) << "Correspondences: " << problem->correspondences.size();
 
     std::shared_ptr<PolynomialResponse> response;
-    response = std::make_shared<PolynomialResponse>(3);
+    response = std::make_shared<PolynomialResponse>(4);
 
     cv::Mat a, b;
-    cv::resize(images[2].data(), a, cv::Size(160, 120), 0, 0, CV_INTER_NN);
-    cv::resize(images[3].data(), b, cv::Size(160, 120), 0, 0, CV_INTER_NN);
+    cv::resize(images[2].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+    cv::resize(images[3].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
 
     aa = Image(a);
     bb = Image(b);
@@ -439,9 +423,36 @@ int main(int argc, char** argv)
       result_log.Log(irradiance);
     }
 
+    cv::Mat irr_image;
+    cv::Mat byte_irr_image;
+
+    camera->set_exposure(images[3].exposure());
+
     while (!pangolin::ShouldQuit())
     {
+      camera->Capture(image);
+      image.data().convertTo(irr_image, CV_32FC3, 1.0 / 255.0);
+
+      for (int y = 0; y < irr_image.rows; ++y)
+      {
+        for (int x = 0; x < irr_image.cols; ++x)
+        {
+          Eigen::Vector3f pixel = irr_image.at<Eigen::Vector3f>(y, x);
+          pixel[0] = (*response)(pixel[0]);
+          pixel[1] = (*response)(pixel[1]);
+          pixel[2] = (*response)(pixel[2]);
+          irr_image.at<Eigen::Vector3f>(y, x) = pixel;
+        }
+      }
+
+      irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
       glClear(GL_COLOR_BUFFER_BIT);
+
+      camera_display->Activate();
+      unsigned char* data = byte_irr_image.data;
+      camera_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      camera_texture->RenderToViewportFlipY();
+
       camera_display->Activate();
       camera_texture->RenderToViewportFlipY();
 

@@ -11,6 +11,7 @@
 #include <calibu/target/TargetGridDot.h>
 #include <HAL/Camera/CameraDevice.h>
 #include <HAL/Camera/Drivers/Undistort/UndistortDriver.h>
+#include <pangolin/pangolin.h>
 #include <photocalib/photocalib.h>
 
 DEFINE_string(cam, "", "HAL camera uri");
@@ -153,6 +154,7 @@ int main(int argc, char** argv)
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
   const int pitch = width * sizeof(unsigned char);
+  const double image_aspect_ratio = double(width) / height;
 
   calibu::LookupTable undistort_lookup(width, height);
   calibu::CreateLookupTable(rig->cameras_[0], undistort_lookup);
@@ -176,8 +178,69 @@ int main(int argc, char** argv)
   vignetting = cv::Scalar(1);
   weights = cv::Scalar(0);
 
-  while (true)
+  // create pangolin views
+
+  int twidth;
+  int theight;
+
+  if (target_reference_width > target_reference_height)
   {
+    twidth = target_reference_width;
+    theight = target_reference_height;
+  }
+  else
+  {
+    twidth = target_reference_height;
+    theight = target_reference_width;
+  }
+
+  const double reference_aspect_ratio = double(twidth) / theight;
+  const double reference_split = 1 - (400 / (600 * reference_aspect_ratio));
+
+  pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
+
+  pangolin::View& camera_display = pangolin::Display("camera");
+  camera_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  camera_display.SetBounds(0.0, 1.0, 0.0, 2.0 / 3.0, image_aspect_ratio);
+
+  pangolin::View& stats_display = pangolin::Display("stats");
+  stats_display.SetLock(pangolin::LockRight, pangolin::LockTop);
+  stats_display.SetBounds(0.0, 1.0, 2.0 / 3.0, 1.0);
+
+  pangolin::View& upper_stats_display = pangolin::Display("upper stats");
+  upper_stats_display.SetLock(pangolin::LockLeft, pangolin::LockTop);
+  upper_stats_display.SetBounds(reference_split, 1.0, 0.0, 1.0);
+  stats_display.AddDisplay(upper_stats_display);
+
+  pangolin::View& lower_stats_display = pangolin::Display("lower stats");
+  lower_stats_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
+  lower_stats_display.SetBounds(0.0, reference_split, 0.0, 1.0);
+  stats_display.AddDisplay(lower_stats_display);
+
+  pangolin::View& target_display = pangolin::Display("target");
+  target_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  target_display.SetBounds(0.0, 1.0, 0.0, 1.0, reference_aspect_ratio);
+  upper_stats_display.AddDisplay(target_display);
+
+  pangolin::View& vignetting_display = pangolin::Display("vignetting");
+  vignetting_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  vignetting_display.SetBounds(0.0, 1.0, 0.0, 0.5, image_aspect_ratio);
+  lower_stats_display.AddDisplay(vignetting_display);
+
+  pangolin::View& coverage_display = pangolin::Display("coverage");
+  coverage_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);
+  coverage_display.SetBounds(0.0, 1.0, 0.5, 1.0, image_aspect_ratio);
+  lower_stats_display.AddDisplay(coverage_display);
+
+  pangolin::GlTexture camera_texture(width, height, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  pangolin::GlTexture target_texture(twidth, theight, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+  pangolin::GlTexture vignetting_texture(width, height, GL_RED, false, 0, GL_RED, GL_UNSIGNED_BYTE);
+  pangolin::GlTexture converage_texture(width, height, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
+
+  while (!pangolin::ShouldQuit())
+  {
+    glClear(GL_COLOR_BUFFER_BIT);
+
     raw_camera->Capture(images);
     cv::cvtColor(images[0], raw_image, CV_BGR2GRAY);
 
@@ -319,10 +382,25 @@ int main(int argc, char** argv)
     cv::Mat cref = reference_image;
     cv::cvtColor(cref, cref, CV_GRAY2BGR);
 
-    cv::imshow("Live Image", undistort_image);
-    cv::imshow("Project Image", final + 0.9 * cref);
-    const int key = cv::waitKey(33);
-    if (key == 27) break;
+    camera_display.Activate();
+    unsigned char* data = images[0].data;
+    camera_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    camera_texture.RenderToViewportFlipY();
+
+    cv::Mat tmat = final + 0.9 * cref;
+    tmat.convertTo(tmat, CV_8UC3, 255.0);
+
+    if (target_reference_width < target_reference_height)
+    {
+      tmat = tmat.t();
+    }
+
+    target_display.Activate();
+    unsigned char* tdata = tmat.data;
+    target_texture.Upload(tdata, GL_BGR, GL_UNSIGNED_BYTE);
+    target_texture.RenderToViewport();
+
+    pangolin::FinishFrame();
   }
 
   // create vignetting problem from reference image set
