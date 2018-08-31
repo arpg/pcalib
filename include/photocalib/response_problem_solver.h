@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include <functional>
 
 namespace photocalib
 {
@@ -11,6 +13,10 @@ class ResponseProblem;
 template <typename Response>
 class ResponseProblemSolver
 {
+  public:
+
+    typedef std::function<void(const Response&)> Callback;
+
   public:
 
     ResponseProblemSolver(std::shared_ptr<const ResponseProblem> problem);
@@ -27,7 +33,11 @@ class ResponseProblemSolver
 
     void Solve(std::shared_ptr<Response> response);
 
+    void RegisterCallback(const Callback& callback);
+
   protected:
+
+    void NotifyCallbacks(const Response& response) const;
 
     void GetInliers(std::shared_ptr<Response> response,
         ResponseProblem& subproblem) const;
@@ -36,6 +46,8 @@ class ResponseProblemSolver
         ResponseProblem& subproblem);
 
   protected:
+
+    std::vector<Callback> callbacks_;
 
     std::shared_ptr<const ResponseProblem> problem_;
 

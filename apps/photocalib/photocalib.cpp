@@ -11,8 +11,8 @@ DEFINE_string(pcalib, "", "input photometric calibration file");
 DEFINE_string(output, "pcalib.xml", "output photometric calibration file");
 DEFINE_bool(response, true, "enable response calibration");
 DEFINE_bool(vignetting, true, "enable vignetting calibration");
-DEFINE_double(inlier_thresh, 0.1, "maximum response error for inliers");
-DEFINE_int32(ransac_iters, 1000, "number of ransac iterations");
+DEFINE_double(inlier_thresh, 0.025, "maximum response error for inliers");
+DEFINE_int32(ransac_iters, 10000, "number of ransac iterations");
 
 DEFINE_int32(grid_height, 0, "");
 DEFINE_int32(grid_width, 0, "");
@@ -23,6 +23,33 @@ DEFINE_double(grid_spacing, 0.0, "");
 DEFINE_string(grid_preset, "", "");
 
 using namespace photocalib;
+
+pangolin::DataLog result_log;
+
+inline void ResponseCallback(const PolynomialResponse& response)
+{
+  result_log.Clear();
+
+  for (int i = 0; i < 100; ++i)
+  {
+    const double intensity = double(i) / 99;
+    const double irradiance = response(intensity);
+    result_log.Log(irradiance);
+  }
+
+  pangolin::FinishFrame();
+}
+
+std::vector<size_t> sort_indexes(const std::vector<double>& values)
+{
+  std::vector<size_t> indices(values.size());
+  std::iota(indices.begin(), indices.end(), 0);
+
+  std::sort(indices.begin(), indices.end(),
+       [&values](size_t i, size_t j) { return values[i] < values[j]; });
+
+  return indices;
+}
 
 int main(int argc, char** argv)
 {
@@ -42,6 +69,13 @@ int main(int argc, char** argv)
   camera->set_gain(1);
   camera->Capture(image);
 
+  std::vector<double> channel_means(3);
+  channel_means[0] = image.mean(0);
+  channel_means[1] = image.mean(1);
+  channel_means[2] = image.mean(2);
+
+  const std::vector<size_t> channel_order = sort_indexes(channel_means);
+
   pangolin::CreateGlutWindowAndBind("Photocalib", 1400, 600);
 
   pangolin::View& display = pangolin::Display("camera");
@@ -54,14 +88,12 @@ int main(int argc, char** argv)
 
   int target_index = 0;
   std::vector<ExposureTarget> targets;
-  targets.push_back(ExposureTarget( 10));
-  targets.push_back(ExposureTarget( 25));
-  targets.push_back(ExposureTarget( 50));
-  targets.push_back(ExposureTarget(100));
-  targets.push_back(ExposureTarget(150));
-  targets.push_back(ExposureTarget(200));
-  targets.push_back(ExposureTarget(225));
-  targets.push_back(ExposureTarget(245));
+  targets.push_back(ExposureTarget( 25, channel_order[2]));
+  targets.push_back(ExposureTarget( 50, channel_order[2]));
+  targets.push_back(ExposureTarget(100, channel_order[2]));
+  targets.push_back(ExposureTarget(150, channel_order[0]));
+  targets.push_back(ExposureTarget(200, channel_order[0]));
+  targets.push_back(ExposureTarget(225, channel_order[0]));
   camera->set_exposure_target(targets[target_index]);
   camera->set_exposure(0);
   camera->set_gain(1);
@@ -70,7 +102,7 @@ int main(int argc, char** argv)
   int last_change = 0;
   double last_exposure = 0;
 
-  const int max_fuse_count = 75;
+  const int max_fuse_count = 50;
   bool fusing = false;
   int fuse_count = 0;
 
@@ -88,7 +120,6 @@ int main(int argc, char** argv)
   exposure_display.AddDisplay(exposure_plotter);
   exposure_plotter.Track("$i");
 
-  pangolin::DataLog result_log;
   std::vector<std::string> result_labels;
   result_labels.push_back("response");
   result_log.SetLabels(result_labels);
@@ -241,6 +272,7 @@ int main(int argc, char** argv)
     ResponseProblemSolver<PolynomialResponse> solver(problem);
     solver.set_inlier_threshold(FLAGS_inlier_thresh);
     solver.set_ransac_iterations(FLAGS_ransac_iters);
+    solver.RegisterCallback(ResponseCallback);
     solver.Solve(response);
 
     Eigen::VectorXd params = response->parameters();

@@ -13,8 +13,8 @@
   PHOTOCALIB_ASSERT_MSG(cond, "assertion failed: " #cond)
 
 #ifdef NDEBUG
-#define PHOTOCALIB_DEBUG_MSG(cond, text)
-#define PHOTOCALIB_DEBUG(cond)
+#define PHOTOCALIB_DEBUG_MSG(cond, text) if (!(cond)) {}
+#define PHOTOCALIB_DEBUG(cond) if (!(cond)) {}
 #else
 #define PHOTOCALIB_DEBUG_MSG PHOTOCALIB_ASSERT_MSG
 #define PHOTOCALIB_DEBUG PHOTOCALIB_ASSERT

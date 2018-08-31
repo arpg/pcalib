@@ -103,6 +103,22 @@ void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response)
   Solve(response, subproblem);
 }
 
+template<typename Response>
+void ResponseProblemSolver<Response>::RegisterCallback(const Callback& callback)
+{
+  callbacks_.push_back(callback);
+}
+
+template<typename Response>
+void ResponseProblemSolver<Response>::NotifyCallbacks(
+    const Response& response) const
+{
+  for (const Callback& callback : callbacks_)
+  {
+    if (callback) callback(response);
+  }
+}
+
 template <typename Response>
 void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> response,
     ResponseProblem& subproblem) const
@@ -124,7 +140,9 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
 
   for (int i = 0; i < ransac_iterations_; ++i)
   {
-    std::cout << "ransac iteration: " << (i + 1) << "/" << ransac_iterations_ << std::endl;
+    if (i % 10 == 0)
+      std::cout << "ransac iteration: " << (i + 1) << "/" << ransac_iterations_ << std::endl;
+
     std::vector<ResponseProblem::Correspondence> correspondences(param_count - 1);
 
     for (size_t j = 0; j < correspondences.size(); ++j)
@@ -204,6 +222,8 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
 
       std::cout << "new inlier count: " << inliers.size() << " (" <<
           (100.0 * inliers.size() / problem_->correspondences.size()) << "%)" << std::endl;
+
+      NotifyCallbacks(*response);
     }
   }
 
