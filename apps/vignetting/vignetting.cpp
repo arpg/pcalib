@@ -23,6 +23,7 @@ DEFINE_double(grid_spacing, 0.0, "target grid circle spacing");
 DEFINE_double(grid_large_radius, 0.0, "target grid large circle radius");
 DEFINE_double(grid_small_radius, 0.0, "target grid small circle radius");
 DEFINE_string(grid_preset, "", "target grid preset name");
+DEFINE_string(output_image, "vignetting.png", "vignetting image output file");
 
 using namespace photocalib;
 
@@ -120,7 +121,7 @@ int main(int argc, char** argv)
   const Eigen::Vector2d grid_radius_sizes(grid_small_radius, grid_large_radius);
   Eigen::Map<const Eigen::VectorXi> grid_radius_map(grid_t.data(), grid.size());
 
-  const double radius_scale = 1.5;
+  const double radius_scale = 1.35;
 
   for (int i = 0; i < conic_count; ++i)
   {
@@ -162,7 +163,12 @@ int main(int argc, char** argv)
     // myself for now, use hal later once integrated
 
   PolynomialResponse response(3);
-  response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
+
+  // // orbbec
+  // response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
+
+  // xtion
+  response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
 
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
@@ -208,7 +214,7 @@ int main(int argc, char** argv)
   }
 
   const double reference_aspect_ratio = double(twidth) / theight;
-  const double reference_split = 1 - (400 / (600 * reference_aspect_ratio));
+  const double stats_split = 1.0;
 
   pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
 
@@ -222,12 +228,12 @@ int main(int argc, char** argv)
 
   pangolin::View& upper_stats_display = pangolin::Display("upper stats");
   upper_stats_display.SetLock(pangolin::LockLeft, pangolin::LockTop);
-  upper_stats_display.SetBounds(reference_split, 1.0, 0.0, 1.0);
+  upper_stats_display.SetBounds(stats_split, 1.0, 0.0, 1.0);
   stats_display.AddDisplay(upper_stats_display);
 
   pangolin::View& lower_stats_display = pangolin::Display("lower stats");
   lower_stats_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
-  lower_stats_display.SetBounds(0.0, reference_split, 0.0, 1.0);
+  lower_stats_display.SetBounds(0.0, stats_split, 0.0, 1.0);
   stats_display.AddDisplay(lower_stats_display);
 
   pangolin::View& target_display = pangolin::Display("target");
@@ -253,257 +259,256 @@ int main(int argc, char** argv)
   cv::Mat vig_values(height, width, CV_32FC1);
   cv::Mat vig_weights(height, width, CV_32FC1);
 
-  vig_values = cv::Scalar(1);
+  vig_values = cv::Scalar(0);
   vig_weights = cv::Scalar(0);
 
-  while (!pangolin::ShouldQuit())
+  bool capture_ended = false;
+  bool capture_paused = false;
+  pangolin::RegisterKeyPressCallback(' ', [&](){ capture_paused = !capture_paused; });
+  pangolin::RegisterKeyPressCallback('[', [&](){ capture_ended  = !capture_ended; });
+  pangolin::RegisterKeyPressCallback(']', [&](){ capture_ended  = !capture_ended; });
+
+  cv::Mat new_mask = target_mask.clone();
+
+  while (!pangolin::ShouldQuit() && !capture_ended)
   {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // capture raw image
-
-    raw_camera->Capture(images);
-
-    // convert image to grayscale
-
-    cv::cvtColor(images[0], raw_image, CV_BGR2GRAY);
-
-    // undistort raw image
-
-    unsigned char* dst = undistort_image.data;
-    const unsigned char* src = raw_image.data;
-    calibu::Rectify<unsigned char>(undistort_lookup, src, dst, width, height);
-
-    // process rectified image for conic extraction
-
-    processing.Process(undistort_image.data, width, height, pitch);
-
-    // find conics in rectified image
-
-    finder.Find(processing);
-
-    // detect target from found conics
-
-    target_found = target->FindTarget(processing, finder.Conics(), ellipse_map);
-
-    if (!target_found)
+    if (!capture_paused)
     {
-      continue;
-    }
+      // capture raw image
 
-    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> ellipses(finder.Conics().size());
-
-    for (size_t i = 0; i < finder.Conics().size(); ++i)
-    {
-      ellipses[i] = finder.Conics()[i].center;
-    }
-
-    Sophus::SE3d Tcw;
-    const int ransac_iterations = 0;
-    const float ransac_tolerance = 0.0f;
-
-    // compute current world-to-camera pose as per rectified image
-
-    calibu::PosePnPRansac(rig->cameras_[0], ellipses, target->Circles3D(),
-        ellipse_map, ransac_iterations, ransac_tolerance, &Tcw);
-
-    const double error = calibu::ReprojectionErrorRMS(rig->cameras_[0], Tcw,
-        target->Circles3D(), ellipses, ellipse_map);
-
-    if (error > 2.0)
-    {
-      continue;
-    }
-
-    Eigen::Vector2d target_scaling;
-    target_scaling[0] = target_reference_width  / target_physical_size[0];
-    target_scaling[1] = target_reference_height / target_physical_size[1];
-
-    reference_image = cv::Scalar(0);
-
-    cv::Mat new_mask = target_mask.clone();
-
-    // // AVERAGING (ASSUMED REFLECTANCE) TODO: raw image, raw image mask
-    //
-    // // AVERAGING (UNKNOWN REFLECTANCE) TODO: raw image, raw image mask
-    //   // reference world coords, reference image
-
-    // MODEL TODO: Tuple(raw image coords, reference image coords, irradiance)
-      // - multiple reference images (known locations) and their irradiance
-      // - additionally their raw image coords
-      // - store Vector3f (irradiance, u, v)
-
-    const Eigen::Matrix3d& K = rig->cameras_[0]->K();
-    Eigen::Matrix3d Kinv = Eigen::Matrix3d::Identity();
-    Kinv(0, 0) = 1 / K(0, 0);
-    Kinv(1, 1) = 1 / K(1, 1);
-    Kinv(0, 2) = -K(0, 2) * Kinv(0, 0);
-    Kinv(1, 2) = -K(1, 2) * Kinv(1, 1);
-
-    for (int y = 0; y < images[0].rows; ++y)
-    {
-      for (int x = 0; x < images[0].cols; ++x)
+      try
       {
-        const Pixel& pixel = images[0].at<Pixel>(y, x);
-        const Eigen::Vector3f intensity = pixel.cast<float>() / 255;
-
-        Eigen::Vector3f irradiance;
-        irradiance[0] = response(intensity[0]);
-        irradiance[1] = response(intensity[1]);
-        irradiance[2] = response(intensity[3]);
-
-        const Eigen::Vector3d uvw = Eigen::Vector3d(x + 0.5, y + 0.5, 1);
-        const Eigen::Vector3d Xcp = Kinv * uvw;
-        const Eigen::Vector3d Xwp = Tcw.inverse() * Xcp;
-        const Eigen::Vector3d origin = Tcw.inverse().translation();
-        const Eigen::Vector3d dir = Xwp - origin;
-
-        if (std::abs(dir[2]) < 1E-8)
-        {
-          Pixel new_pixel = pixel;
-          new_pixel[0] = std::min(255, new_pixel[0] + 75);
-          images[0].at<Pixel>(y, x) = new_pixel;
-          continue;
-        }
-
-        const double t = -origin[2] / dir[2];
-        const Eigen::Vector3d p = origin + t * dir;
-
-        if (p[0] < 0 || p[0] > target_physical_size[0] ||
-            p[1] < 0 || p[1] > target_physical_size[1])
-        {
-          Pixel new_pixel = pixel;
-          new_pixel[0] = std::min(255, new_pixel[0] + 75);
-          images[0].at<Pixel>(y, x) = new_pixel;
-          continue;
-        }
-
-        const int tx = p[0] * target_scaling[0];
-        const int ty = p[1] * target_scaling[1];
-        const bool mask = target_mask.at<unsigned char>(ty, tx);
-
-        if (!mask)
-        {
-          Pixel new_pixel = pixel;
-          new_pixel[0] = std::min(255, new_pixel[0] + 75);
-          images[0].at<Pixel>(y, x) = new_pixel;
-          continue;
-        }
-
-        float value = 0.0;
-        int count = 0;
-
-        if (pixel[0] > 2 && pixel[0] < 253)
-        {
-          value += irradiance[0];
-          ++count;
-        }
-
-        if (pixel[1] > 2 && pixel[1] < 253)
-        {
-          value += irradiance[1];
-          ++count;
-        }
-
-        if (pixel[2] > 2 && pixel[2] < 253)
-        {
-          value += irradiance[2];
-          ++count;
-        }
-
-        if (count > 0)
-        {
-          value /= count;
-
-          const float old_value = vig_values.at<float>(y, x);
-          const float old_weight = vig_weights.at<float>(y, x);
-
-          const float new_weight = old_weight + 1;
-          const float new_value = (old_weight * old_value + value) / new_weight;
-
-
-          vig_values.at<float>(y, x) = new_value;
-          vig_weights.at<float>(y, x) = new_weight;
-        }
+        raw_camera->Capture(images);
       }
-    }
-
-
-    // for each pixel in the target reference image
-
-    for (int y = 0; y < reference_image.rows; ++y)
-    {
-      for (int x = 0; x < reference_image.cols; ++x)
+      catch (const Exception& exception)
       {
-        const Eigen::Vector2d reference_uv(x + 0.5, y + 0.5);
+        capture_ended = true;
+        break;
+      }
 
-        // reference space -> target space
-        double ru = reference_uv[0] / target_scaling[0];
-        double rv = reference_uv[1] / target_scaling[1];
+      // convert image to grayscale
 
-        // target space -> grid space
-        ru = ru / grid_spacing;
-        rv = rv / grid_spacing;
+      cv::cvtColor(images[0], raw_image, CV_BGR2GRAY);
 
-        // get grid corner indices
-        const int ui = ru; // TODO: handle border cases
-        const int vi = rv;
+      // undistort raw image
 
-        // get 4 grid weights
-        const double wu1 = ru - ui;
-        const double wv1 = rv - vi;
-        const double wu0 = 1 - wu1;
-        const double wv0 = 1 - wv1;
+      unsigned char* dst = undistort_image.data;
+      const unsigned char* src = raw_image.data;
+      calibu::Rectify<unsigned char>(undistort_lookup, src, dst, width, height);
 
-        // get 4 grid indices
-        const int i00 = (vi + 0) * grid_width + (ui + 0);
-        const int i01 = (vi + 0) * grid_width + (ui + 1);
-        const int i10 = (vi + 1) * grid_width + (ui + 0);
-        const int i11 = (vi + 1) * grid_width + (ui + 1);
+      // process rectified image for conic extraction
 
-        // get 4 grid 3D points
-        const Eigen::Vector3d& Xwp00 = target->Circles3D()[i00];
-        const Eigen::Vector3d& Xwp01 = target->Circles3D()[i01];
-        const Eigen::Vector3d& Xwp10 = target->Circles3D()[i10];
-        const Eigen::Vector3d& Xwp11 = target->Circles3D()[i11];
+      processing.Process(undistort_image.data, width, height, pitch);
 
-        // bilinear interp 3D points
-        Eigen::Vector3d Xwp(0, 0, 0);
-        Xwp += wv0 * wu0 * Xwp00;
-        Xwp += wv0 * wu1 * Xwp01;
-        Xwp += wv1 * wu0 * Xwp10;
-        Xwp += wv1 * wu1 * Xwp11;
+      // find conics in rectified image
 
-        const Eigen::Vector3d Xcp = Tcw * Xwp;
-        const Eigen::Vector2d undistort_uv = rig->cameras_[0]->Project(Xcp);
+      finder.Find(processing);
 
-        if (undistort_uv[0] >= 0.5 && undistort_uv[0] < undistort_image.cols - 0.5 &&
-            undistort_uv[1] >= 0.5 && undistort_uv[1] < undistort_image.rows - 0.5)
+      // detect target from found conics
+
+      target_found = target->FindTarget(processing, finder.Conics(), ellipse_map);
+
+      if (target_found)
+      {
+
+        std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> ellipses(finder.Conics().size());
+
+        for (size_t i = 0; i < finder.Conics().size(); ++i)
         {
-          const Eigen::Vector2i pixel = (undistort_uv - Eigen::Vector2d(0.5, 0.5)).cast<int>();
-          const Eigen::Vector2d w1 = undistort_uv - (pixel.cast<double>() + Eigen::Vector2d(0.5, 0.5));
-          const Eigen::Vector2d w0 = Eigen::Vector2d(1, 1) - w1;
-
-          const unsigned char int00 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 0);
-          const unsigned char int01 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 1);
-          const unsigned char int10 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 0);
-          const unsigned char int11 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 1);
-
-          const float irr00 = response(int00 / 255.0);
-          const float irr01 = response(int01 / 255.0);
-          const float irr10 = response(int10 / 255.0);
-          const float irr11 = response(int11 / 255.0);
-
-          double irradiance = 0;
-          irradiance += w0[1] * w0[0] * irr00;
-          irradiance += w0[1] * w1[0] * irr01;
-          irradiance += w1[1] * w0[0] * irr10;
-          irradiance += w1[1] * w1[0] * irr11;
-          reference_image.at<float>(y, x) = irradiance;
+          ellipses[i] = finder.Conics()[i].center;
         }
-        else
+
+        Sophus::SE3d Tcw;
+        const int ransac_iterations = 0;
+        const float ransac_tolerance = 0.0f;
+
+        // compute current world-to-camera pose as per rectified image
+
+        calibu::PosePnPRansac(rig->cameras_[0], ellipses, target->Circles3D(),
+            ellipse_map, ransac_iterations, ransac_tolerance, &Tcw);
+
+        const double error = calibu::ReprojectionErrorRMS(rig->cameras_[0], Tcw,
+            target->Circles3D(), ellipses, ellipse_map);
+
+        if (error < 2.0)
         {
-          new_mask.at<unsigned char>(y, x) = 0;
+          Eigen::Vector2d target_scaling;
+          target_scaling[0] = target_reference_width  / target_physical_size[0];
+          target_scaling[1] = target_reference_height / target_physical_size[1];
+
+          reference_image = cv::Scalar(0);
+
+          new_mask = target_mask.clone();
+
+          for (int y = 0; y < images[0].rows; ++y)
+          {
+            for (int x = 0; x < images[0].cols; ++x)
+            {
+              const Pixel& pixel = images[0].at<Pixel>(y, x);
+              const Eigen::Vector3f intensity = pixel.cast<float>() / 255;
+
+              Eigen::Vector3f irradiance;
+              irradiance[0] = response(intensity[0]);
+              irradiance[1] = response(intensity[1]);
+              irradiance[2] = response(intensity[3]);
+
+              const Eigen::Vector2d uv = Eigen::Vector2d(x + 0.5, y + 0.5);
+              const Eigen::Vector3d Xcp = rig->cameras_[0]->Unproject(uv);
+              const Eigen::Vector3d Xwp = Tcw.inverse() * Xcp;
+              const Eigen::Vector3d origin = Tcw.inverse().translation();
+              const Eigen::Vector3d dir = Xwp - origin;
+
+              if (std::abs(dir[2]) < 1E-8)
+              {
+                Pixel new_pixel = pixel;
+                new_pixel[0] = std::min(255, new_pixel[0] + 75);
+                images[0].at<Pixel>(y, x) = new_pixel;
+                continue;
+              }
+
+              const double t = -origin[2] / dir[2];
+              const Eigen::Vector3d p = origin + t * dir;
+
+              if (p[0] < 0 || p[0] > target_physical_size[0] ||
+                  p[1] < 0 || p[1] > target_physical_size[1])
+              {
+                Pixel new_pixel = pixel;
+                new_pixel[0] = std::min(255, new_pixel[0] + 75);
+                images[0].at<Pixel>(y, x) = new_pixel;
+                continue;
+              }
+
+              const int tx = p[0] * target_scaling[0];
+              const int ty = p[1] * target_scaling[1];
+              const bool mask = target_mask.at<unsigned char>(ty, tx);
+
+              if (!mask)
+              {
+                Pixel new_pixel = pixel;
+                new_pixel[0] = std::min(255, new_pixel[0] + 75);
+                images[0].at<Pixel>(y, x) = new_pixel;
+                continue;
+              }
+
+              float value = 0.0;
+              int count = 0;
+
+              if (pixel[0] > 2 && pixel[0] < 253)
+              {
+                value += irradiance[0];
+                ++count;
+              }
+
+              if (pixel[1] > 2 && pixel[1] < 253)
+              {
+                value += irradiance[1];
+                ++count;
+              }
+
+              if (pixel[2] > 2 && pixel[2] < 253)
+              {
+                value += irradiance[2];
+                ++count;
+              }
+
+              if (count > 0)
+              {
+                value /= count;
+
+                const float old_value = vig_values.at<float>(y, x);
+                const float old_weight = vig_weights.at<float>(y, x);
+
+                const float new_weight = old_weight + 1;
+                const float new_value = (old_weight * old_value + value) / new_weight;
+
+
+                vig_values.at<float>(y, x) = new_value;
+                vig_weights.at<float>(y, x) = new_weight;
+              }
+            }
+          }
+
+
+          // for each pixel in the target reference image
+
+          for (int y = 0; y < reference_image.rows; ++y)
+          {
+            for (int x = 0; x < reference_image.cols; ++x)
+            {
+              const Eigen::Vector2d reference_uv(x + 0.5, y + 0.5);
+
+              // reference space -> target space
+              double ru = reference_uv[0] / target_scaling[0];
+              double rv = reference_uv[1] / target_scaling[1];
+
+              // target space -> grid space
+              ru = ru / grid_spacing;
+              rv = rv / grid_spacing;
+
+              // get grid corner indices
+              const int ui = ru; // TODO: handle border cases
+              const int vi = rv;
+
+              // get 4 grid weights
+              const double wu1 = ru - ui;
+              const double wv1 = rv - vi;
+              const double wu0 = 1 - wu1;
+              const double wv0 = 1 - wv1;
+
+              // get 4 grid indices
+              const int i00 = (vi + 0) * grid_width + (ui + 0);
+              const int i01 = (vi + 0) * grid_width + (ui + 1);
+              const int i10 = (vi + 1) * grid_width + (ui + 0);
+              const int i11 = (vi + 1) * grid_width + (ui + 1);
+
+              // get 4 grid 3D points
+              const Eigen::Vector3d& Xwp00 = target->Circles3D()[i00];
+              const Eigen::Vector3d& Xwp01 = target->Circles3D()[i01];
+              const Eigen::Vector3d& Xwp10 = target->Circles3D()[i10];
+              const Eigen::Vector3d& Xwp11 = target->Circles3D()[i11];
+
+              // bilinear interp 3D points
+              Eigen::Vector3d Xwp(0, 0, 0);
+              Xwp += wv0 * wu0 * Xwp00;
+              Xwp += wv0 * wu1 * Xwp01;
+              Xwp += wv1 * wu0 * Xwp10;
+              Xwp += wv1 * wu1 * Xwp11;
+
+              const Eigen::Vector3d Xcp = Tcw * Xwp;
+              const Eigen::Vector2d undistort_uv = rig->cameras_[0]->Project(Xcp);
+
+              if (undistort_uv[0] >= 0.5 && undistort_uv[0] < undistort_image.cols - 0.5 &&
+                  undistort_uv[1] >= 0.5 && undistort_uv[1] < undistort_image.rows - 0.5)
+              {
+                const Eigen::Vector2i pixel = (undistort_uv - Eigen::Vector2d(0.5, 0.5)).cast<int>();
+                const Eigen::Vector2d w1 = undistort_uv - (pixel.cast<double>() + Eigen::Vector2d(0.5, 0.5));
+                const Eigen::Vector2d w0 = Eigen::Vector2d(1, 1) - w1;
+
+                const unsigned char int00 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 0);
+                const unsigned char int01 = undistort_image.at<unsigned char>(pixel[1] + 0, pixel[0] + 1);
+                const unsigned char int10 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 0);
+                const unsigned char int11 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 1);
+
+                const float irr00 = response(int00 / 255.0);
+                const float irr01 = response(int01 / 255.0);
+                const float irr10 = response(int10 / 255.0);
+                const float irr11 = response(int11 / 255.0);
+
+                double irradiance = 0;
+                irradiance += w0[1] * w0[0] * irr00;
+                irradiance += w0[1] * w1[0] * irr01;
+                irradiance += w1[1] * w0[0] * irr10;
+                irradiance += w1[1] * w1[0] * irr11;
+                reference_image.at<float>(y, x) = irradiance;
+              }
+              else
+              {
+                new_mask.at<unsigned char>(y, x) = 0;
+              }
+            }
+          }
         }
       }
     }
@@ -589,6 +594,20 @@ int main(int argc, char** argv)
     }
 
     pangolin::FinishFrame();
+  }
+
+  if (!pangolin::ShouldQuit() && capture_ended)
+  {
+    if (!FLAGS_output_image.empty())
+    {
+      double vmin;
+      double vmax;
+      cv::minMaxLoc(vig_values, &vmin, &vmax);
+
+      cv::Mat output;
+      vig_values.convertTo(output, CV_16UC1, 65535.0 / vmax);
+      cv::imwrite(FLAGS_output_image, output);
+    }
   }
 
   // create vignetting problem from reference image set
