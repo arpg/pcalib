@@ -164,11 +164,11 @@ int main(int argc, char** argv)
 
   PolynomialResponse response(3);
 
-  // // orbbec
-  // response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
+  // orbbec
+  response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
 
-  // xtion
-  response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
+  // // xtion
+  // response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
 
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
@@ -354,6 +354,11 @@ int main(int argc, char** argv)
               irradiance[1] = response(intensity[1]);
               irradiance[2] = response(intensity[3]);
 
+              // if (x == 320 && y == 240)
+              // {
+              //   LOG(INFO) << "Irr: " << irradiance.transpose();
+              // }
+
               const Eigen::Vector2d uv = Eigen::Vector2d(x + 0.5, y + 0.5);
               const Eigen::Vector3d Xcp = rig->cameras_[0]->Unproject(uv);
               const Eigen::Vector3d Xwp = Tcw.inverse() * Xcp;
@@ -413,7 +418,7 @@ int main(int argc, char** argv)
                 ++count;
               }
 
-              if (count > 0)
+              if (count > 0 && value >= 0 && value <= 1.0)
               {
                 value /= count;
 
@@ -423,6 +428,13 @@ int main(int argc, char** argv)
                 const float new_weight = old_weight + 1;
                 const float new_value = (old_weight * old_value + value) / new_weight;
 
+                // if (x == 320 && y == 240)
+                // {
+                //   LOG(INFO) << "old_value: " << old_value;
+                //   LOG(INFO) << "old_weight: " << old_weight;
+                //   LOG(INFO) << "new_value: " << new_value;
+                //   LOG(INFO) << "new_weight: " << new_weight;
+                // }
 
                 vig_values.at<float>(y, x) = new_value;
                 vig_weights.at<float>(y, x) = new_weight;
@@ -556,6 +568,8 @@ int main(int argc, char** argv)
       double vmax;
       cv::minMaxLoc(mat, &vmin, &vmax);
 
+      LOG(INFO) << "MAX VIG: " << vmax;
+
       cv::cvtColor(mat, mat, CV_GRAY2BGR);
 
       for (int y = 0; y < mat.rows; ++y)
@@ -610,9 +624,131 @@ int main(int argc, char** argv)
     }
   }
 
-  // create vignetting problem from reference image set
-  // create initial vignetting model
-  // solve problem
+  bool vignetting_enabled = true;
+  pangolin::RegisterKeyPressCallback('v', [&](){ vignetting_enabled = !vignetting_enabled; });
+
+  while (!pangolin::ShouldQuit())
+  {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    if (!capture_paused)
+    {
+      try
+      {
+        raw_camera->Capture(images);
+      }
+      catch (const Exception& exception)
+      {
+        break;
+      }
+    }
+
+    double vmin;
+    double vmax;
+    cv::minMaxLoc(vig_values, &vmin, &vmax);
+
+    for (int y = 0; y < images[0].rows; ++y)
+    {
+      for (int x = 0; x < images[0].cols; ++x)
+      {
+        float scale = 1.0;
+        const float vig = vig_values.at<float>(y, x);
+
+        if (vignetting_enabled)
+        {
+          scale = (vig > 0) ? vmax / vig : 0;
+        }
+
+        Pixel pixel = images[0].at<Pixel>(y, x);
+        pixel[0] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[0] / 255.0))));
+        pixel[1] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[1] / 255.0))));
+        pixel[2] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[2] / 255.0))));
+        images[0].at<Pixel>(y, x) = pixel;
+      }
+    }
+
+    cv::Mat fmask = 1 - new_mask;
+    fmask.convertTo(fmask, CV_32FC1);
+    fmask *= 0.25;
+
+    std::vector<cv::Mat> channels(3);
+    channels[0] = cv::Mat(fmask.rows, fmask.cols, CV_32FC1);
+    channels[1] = cv::Mat(fmask.rows, fmask.cols, CV_32FC1);
+    channels[0] = cv::Scalar(0);
+    channels[1] = cv::Scalar(0);
+    channels[2] = fmask;
+
+    cv::Mat final;
+    cv::merge(channels, final);
+
+    cv::Mat cref = reference_image;
+    cv::cvtColor(cref, cref, CV_GRAY2BGR);
+
+    camera_display.Activate();
+    unsigned char* data = images[0].data;
+    camera_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+    camera_texture.RenderToViewportFlipY();
+
+    cv::Mat tmat = final + 0.9 * cref;
+    tmat.convertTo(tmat, CV_8UC3, 255.0);
+
+    if (target_reference_width < target_reference_height)
+    {
+      tmat = tmat.t();
+    }
+
+    target_display.Activate();
+    unsigned char* tdata = tmat.data;
+    target_texture.Upload(tdata, GL_BGR, GL_UNSIGNED_BYTE);
+    target_texture.RenderToViewportFlipXFlipY();
+
+    {
+      cv::Mat mat;
+      vig_values.convertTo(mat, CV_8UC1, 255.0);
+
+      double vmin;
+      double vmax;
+      cv::minMaxLoc(mat, &vmin, &vmax);
+
+      cv::cvtColor(mat, mat, CV_GRAY2BGR);
+
+      for (int y = 0; y < mat.rows; ++y)
+      {
+        for (int x = 0; x < mat.cols; ++x)
+        {
+          mat.at<Pixel>(y, x)[0] = 255.0 * mat.at<Pixel>(y, x)[0] / vmax;
+          mat.at<Pixel>(y, x)[1] = 255.0 * mat.at<Pixel>(y, x)[1] / vmax;
+          mat.at<Pixel>(y, x)[2] = 255.0 * mat.at<Pixel>(y, x)[2] / vmax;
+        }
+      }
+
+      vignetting_display.Activate();
+      unsigned char* data = mat.data;
+      vignetting_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      vignetting_texture.RenderToViewportFlipY();
+    }
+
+    {
+      cv::Mat mat;
+      vig_weights.convertTo(mat, CV_8UC1, 0.255);
+      cv::cvtColor(mat, mat, CV_GRAY2BGR);
+
+      for (int y = 0; y < mat.rows; ++y)
+      {
+        for (int x = 0; x < mat.cols; ++x)
+        {
+          mat.at<Pixel>(y, x) = colormap[mat.at<Pixel>(y, x)[0]];
+        }
+      }
+
+      coverage_display.Activate();
+      unsigned char* data = mat.data;
+      coverage_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      coverage_texture.RenderToViewportFlipY();
+    }
+
+    pangolin::FinishFrame();
+  }
 
   LOG(INFO) << "Success";
   return 0;
