@@ -24,6 +24,7 @@ DEFINE_double(grid_large_radius, 0.0, "target grid large circle radius");
 DEFINE_double(grid_small_radius, 0.0, "target grid small circle radius");
 DEFINE_string(grid_preset, "", "target grid preset name");
 DEFINE_string(output_image, "vignetting.png", "vignetting image output file");
+DEFINE_double(max_weight, 200, "max vignetting integration weight");
 
 using namespace photocalib;
 
@@ -164,11 +165,11 @@ int main(int argc, char** argv)
 
   PolynomialResponse response(3);
 
-  // orbbec
-  response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
+  // // orbbec
+  // response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
 
-  // // xtion
-  // response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
+  // xtion
+  response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
 
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
@@ -270,8 +271,11 @@ int main(int argc, char** argv)
 
   cv::Mat new_mask = target_mask.clone();
 
+  int frame = 0;
+
   while (!pangolin::ShouldQuit() && !capture_ended)
   {
+    LOG(INFO) << "Frame: " << ++frame;
     glClear(GL_COLOR_BUFFER_BIT);
 
     if (!capture_paused)
@@ -352,10 +356,11 @@ int main(int argc, char** argv)
               Eigen::Vector3f irradiance;
               irradiance[0] = response(intensity[0]);
               irradiance[1] = response(intensity[1]);
-              irradiance[2] = response(intensity[3]);
+              irradiance[2] = response(intensity[2]);
 
               // if (x == 320 && y == 240)
               // {
+              //   LOG(INFO) << "Int: " << intensity.transpose();
               //   LOG(INFO) << "Irr: " << irradiance.transpose();
               // }
 
@@ -418,15 +423,17 @@ int main(int argc, char** argv)
                 ++count;
               }
 
-              if (count > 0 && value >= 0 && value <= 1.0)
+              if (count > 0)// && value >= 0 && value <= 1.0)
               {
                 value /= count;
 
                 const float old_value = vig_values.at<float>(y, x);
                 const float old_weight = vig_weights.at<float>(y, x);
 
-                const float new_weight = old_weight + 1;
+                double new_weight = old_weight + 1;
                 const float new_value = (old_weight * old_value + value) / new_weight;
+                new_weight = std::min(FLAGS_max_weight, new_weight);
+
 
                 // if (x == 320 && y == 240)
                 // {
@@ -567,8 +574,9 @@ int main(int argc, char** argv)
       double vmin;
       double vmax;
       cv::minMaxLoc(mat, &vmin, &vmax);
+      if (vmax <= 0) vmax = 255.0;
 
-      LOG(INFO) << "MAX VIG: " << vmax;
+      // LOG(INFO) << "MAX VIG: " << vmax;
 
       cv::cvtColor(mat, mat, CV_GRAY2BGR);
 
@@ -576,9 +584,9 @@ int main(int argc, char** argv)
       {
         for (int x = 0; x < mat.cols; ++x)
         {
-          mat.at<Pixel>(y, x)[0] = 255.0 * mat.at<Pixel>(y, x)[0] / vmax;
-          mat.at<Pixel>(y, x)[1] = 255.0 * mat.at<Pixel>(y, x)[1] / vmax;
-          mat.at<Pixel>(y, x)[2] = 255.0 * mat.at<Pixel>(y, x)[2] / vmax;
+          mat.at<Pixel>(y, x)[0] = std::max(0.0, std::min(255.0, 255.0 * mat.at<Pixel>(y, x)[0] / vmax));
+          mat.at<Pixel>(y, x)[1] = std::max(0.0, std::min(255.0, 255.0 * mat.at<Pixel>(y, x)[1] / vmax));
+          mat.at<Pixel>(y, x)[2] = std::max(0.0, std::min(255.0, 255.0 * mat.at<Pixel>(y, x)[2] / vmax));
         }
       }
 
@@ -590,7 +598,7 @@ int main(int argc, char** argv)
 
     {
       cv::Mat mat;
-      vig_weights.convertTo(mat, CV_8UC1, 0.255);
+      vig_weights.convertTo(mat, CV_8UC1, 255.0 / FLAGS_max_weight);
       cv::cvtColor(mat, mat, CV_GRAY2BGR);
 
       for (int y = 0; y < mat.rows; ++y)
@@ -730,7 +738,7 @@ int main(int argc, char** argv)
 
     {
       cv::Mat mat;
-      vig_weights.convertTo(mat, CV_8UC1, 0.255);
+      vig_weights.convertTo(mat, CV_8UC1, 255.0 / FLAGS_max_weight);
       cv::cvtColor(mat, mat, CV_GRAY2BGR);
 
       for (int y = 0; y < mat.rows; ++y)
