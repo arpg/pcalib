@@ -1,9 +1,9 @@
 #pragma once
 
 #include <Eigen/Eigen>
-#include <photocalib/exception.h>
+#include <pcalib/exception.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 template <typename T>
@@ -63,4 +63,4 @@ class Light
     Vector3t position_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

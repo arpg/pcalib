@@ -4,7 +4,7 @@
 #include <string>
 
 #define PHOTOCALIB_THROW(text) \
-  throw ::photocalib::Exception(__LINE__, __FILE__, text)
+  throw ::pcalib::Exception(__LINE__, __FILE__, text)
 
 #define PHOTOCALIB_ASSERT_MSG(cond, text) \
   if (!(cond)) PHOTOCALIB_THROW(text)
@@ -20,7 +20,7 @@
 #define PHOTOCALIB_DEBUG PHOTOCALIB_ASSERT
 #endif
 
-namespace photocalib
+namespace pcalib
 {
 
 class Exception : public std::exception
@@ -73,4 +73,4 @@ class Exception : public std::exception
     std::string what_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

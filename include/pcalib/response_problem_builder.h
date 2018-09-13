@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Image;
@@ -23,4 +23,4 @@ class ResponseProblemBuilder
     std::vector<Image> images_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

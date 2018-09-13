@@ -1,9 +1,9 @@
-#include <photocalib/calibration_reader.h>
+#include <pcalib/calibration_reader.h>
 #include <tinyxml2.h>
-#include <photocalib/calibration.h>
-#include <photocalib/polynomial_response.h>
+#include <pcalib/calibration.h>
+#include <pcalib/polynomial_response.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 CalibrationReader::CalibrationReader(const std::string& file)
@@ -14,4 +14,4 @@ void CalibrationReader::Read(Calibration& calibration)
 {
 }
 
-} // namespace photocalib
+} // namespace pcalib

@@ -1,11 +1,11 @@
-#include <photocalib/response_problem_solver.h>
+#include <pcalib/response_problem_solver.h>
 #include <random>
 #include <ceres/ceres.h>
-#include <photocalib/exception.h>
-#include <photocalib/polynomial_response.h>
-#include <photocalib/response_problem.h>
+#include <pcalib/exception.h>
+#include <pcalib/polynomial_response.h>
+#include <pcalib/response_problem.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 template <typename Response>
@@ -269,4 +269,4 @@ void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response,
 
 template class ResponseProblemSolver<PolynomialResponse>;
 
-} // namespace photocalib
+} // namespace pcalib

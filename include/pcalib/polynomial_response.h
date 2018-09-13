@@ -1,9 +1,9 @@
 #pragma once
 
 #include <Eigen/Eigen>
-#include <photocalib/exception.h>
+#include <pcalib/exception.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 class PolynomialResponse
@@ -96,4 +96,4 @@ class PolynomialResponse
     Eigen::VectorXd coeffs_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

@@ -1,10 +1,10 @@
-#include <photocalib/response_problem_builder.h>
+#include <pcalib/response_problem_builder.h>
 #include <Eigen/Eigen>
-#include <photocalib/exception.h>
-#include <photocalib/image.h>
-#include <photocalib/response_problem.h>
+#include <pcalib/exception.h>
+#include <pcalib/image.h>
+#include <pcalib/response_problem.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 ResponseProblemBuilder::ResponseProblemBuilder()
@@ -84,4 +84,4 @@ void ResponseProblemBuilder::Build(ResponseProblem& problem)
   }
 }
 
-} // namespace photocalib
+} // namespace pcalib

@@ -12,7 +12,7 @@
 #include <HAL/Camera/CameraDevice.h>
 #include <HAL/Camera/Drivers/Undistort/UndistortDriver.h>
 #include <pangolin/pangolin.h>
-#include <photocalib/photocalib.h>
+#include <pcalib/pcalib.h>
 
 DEFINE_string(cam, "", "HAL camera uri");
 DEFINE_string(calib, "", "camera calibration file");
@@ -28,7 +28,7 @@ DEFINE_double(max_weight, 200, "max vignetting integration weight");
 DEFINE_double(inlier_thresh, 0.05, "maximum response error for inliers");
 DEFINE_int32(ransac_iters, 5000, "number of ransac iterations");
 
-using namespace photocalib;
+using namespace pcalib;
 
 int main(int argc, char** argv)
 {
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
   // response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
   response.set_parameters(Eigen::Vector3d(0.504067,  0.0248056,  0.471128));
 
-  cv::Mat vignetting = cv::imread("/home/mike/Code/photocalib/build/apps/vignetting/xtion_vignetting_smooth.png", CV_LOAD_IMAGE_ANYDEPTH);
+  cv::Mat vignetting = cv::imread("/home/mike/Code/pcalib/build/apps/vignetting/xtion_vignetting_smooth.png", CV_LOAD_IMAGE_ANYDEPTH);
   vignetting.convertTo(vignetting, CV_32FC1, 1.0 / 65535.0);
 
   const int width = raw_camera->Width();

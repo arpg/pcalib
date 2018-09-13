@@ -2,10 +2,10 @@
 
 #include <memory>
 #include <vector>
-#include <photocalib/response.h>
-#include <photocalib/vignetting.h>
+#include <pcalib/response.h>
+#include <pcalib/vignetting.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 struct Calibration
@@ -15,4 +15,4 @@ struct Calibration
   std::shared_ptr<Vignetting> vignetting;
 };
 
-} // namespace photocalib
+} // namespace pcalib

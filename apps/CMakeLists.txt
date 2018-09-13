@@ -1,3 +1,3 @@
-add_subdirectory(photocalib)
+add_subdirectory(pcalib)
 add_subdirectory(vignetting)
 add_subdirectory(lighting)

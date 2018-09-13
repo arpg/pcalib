@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include <photocalib/exception.h>
-#include <photocalib/polynomial_response.h>
+#include <pcalib/exception.h>
+#include <pcalib/polynomial_response.h>
 
-namespace photocalib
+namespace pcalib
 {
 namespace testing
 {
@@ -180,4 +180,4 @@ namespace testing
 
 } // namespace testing
 
-} // namespace photocalib
+} // namespace pcalib

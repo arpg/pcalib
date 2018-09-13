@@ -1,9 +1,9 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
-#include <photocalib/exception.h>
+#include <pcalib/exception.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Image
@@ -104,4 +104,4 @@ class Image
     double exposure_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

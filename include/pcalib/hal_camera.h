@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-#include <photocalib/camera.h>
+#include <pcalib/camera.h>
 
 namespace hal
 {
@@ -12,7 +12,7 @@ class RealSense2Driver;
 
 } // namespace hal
 
-namespace photocalib
+namespace pcalib
 {
 
 class HalCamera : public Camera
@@ -54,4 +54,4 @@ class HalCamera : public Camera
     hal::RealSense2Driver* driver_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

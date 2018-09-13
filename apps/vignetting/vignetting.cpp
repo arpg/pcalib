@@ -12,7 +12,7 @@
 #include <HAL/Camera/CameraDevice.h>
 #include <HAL/Camera/Drivers/Undistort/UndistortDriver.h>
 #include <pangolin/pangolin.h>
-#include <photocalib/photocalib.h>
+#include <pcalib/pcalib.h>
 
 DEFINE_string(cam, "", "HAL camera uri");
 DEFINE_string(calib, "", "camera calibration file");
@@ -26,7 +26,7 @@ DEFINE_string(grid_preset, "", "target grid preset name");
 DEFINE_string(output_image, "vignetting.png", "vignetting image output file");
 DEFINE_double(max_weight, 200, "max vignetting integration weight");
 
-using namespace photocalib;
+using namespace pcalib;
 
 int main(int argc, char** argv)
 {

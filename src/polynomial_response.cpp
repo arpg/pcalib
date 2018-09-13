@@ -1,7 +1,7 @@
-#include <photocalib/polynomial_response.h>
-#include <photocalib/exception.h>
+#include <pcalib/polynomial_response.h>
+#include <pcalib/exception.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 // PolynomialResponse::PolynomialResponse()
@@ -79,4 +79,4 @@ namespace photocalib
 //   return coeffs_.size();
 // }
 
-} // namespace photocalib
+} // namespace pcalib

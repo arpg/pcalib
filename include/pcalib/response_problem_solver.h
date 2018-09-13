@@ -4,7 +4,7 @@
 #include <vector>
 #include <functional>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Response;
@@ -56,4 +56,4 @@ class ResponseProblemSolver
     int ransac_iterations_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

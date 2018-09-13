@@ -4,7 +4,7 @@
 #include <calibu/target/TargetGridDot.h>
 #include <calibu/target/RandomGrid.h>
 #include <pangolin/pangolin.h>
-#include <photocalib/photocalib.h>
+#include <pcalib/pcalib.h>
 
 DEFINE_string(cam, "", "HAL camera uri");
 DEFINE_string(pcalib, "", "input photometric calibration file");
@@ -23,7 +23,7 @@ DEFINE_double(grid_small_radius, 0.0, "");
 DEFINE_double(grid_spacing, 0.0, "");
 DEFINE_string(grid_preset, "", "");
 
-using namespace photocalib;
+using namespace pcalib;
 
 Image aa;
 Image bb;

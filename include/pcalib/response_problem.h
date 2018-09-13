@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace photocalib
+namespace pcalib
 {
 
 class ResponseProblem
@@ -24,4 +24,4 @@ class ResponseProblem
   std::vector<Correspondence> correspondences;
 };
 
-} // namespace photocalib
+} // namespace pcalib

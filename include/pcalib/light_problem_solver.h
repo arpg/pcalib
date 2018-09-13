@@ -1,9 +1,9 @@
 #pragma once
 
 #include <memory>
-#include <photocalib/light.h>
+#include <pcalib/light.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 class LightProblem;
@@ -41,4 +41,4 @@ class LightProblemSolver
     int ransac_iterations_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

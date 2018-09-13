@@ -1,14 +1,11 @@
 #pragma once
 
-#include <memory>
 #include <string>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Calibration;
-class Response;
-class Vignetting;
 
 class CalibrationReader
 {
@@ -19,4 +16,4 @@ class CalibrationReader
     void Read(Calibration& calibration);
 };
 
-} // namespace photocalib
+} // namespace pcalib

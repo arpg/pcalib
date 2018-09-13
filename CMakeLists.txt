@@ -42,15 +42,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 # define c++ configs
 
-set(CPP_CONFIG_DIR include/photocalib)
+set(CPP_CONFIG_DIR include/pcalib)
 
 set(CPP_CONFIGS
-  ${CPP_CONFIG_DIR}/photocalib.h
+  ${CPP_CONFIG_DIR}/pcalib.h
 )
 
 # define c++ headers
 
-set(CPP_HEADER_DIR include/photocalib)
+set(CPP_HEADER_DIR include/pcalib)
 
 set(CPP_HEADERS
   ${CPP_HEADER_DIR}/calibration.h
@@ -121,10 +121,10 @@ endforeach()
 
 # build library
 
-add_library(photocalib SHARED ${CPP_SOURCES})
-target_link_libraries(photocalib ${REQUIRED_LIBRARIES})
-target_include_directories(photocalib PUBLIC ${REQUIRED_INCLUDE_DIRS})
-set_property(TARGET photocalib PROPERTY CXX_STANDARD 14)
+add_library(pcalib SHARED ${CPP_SOURCES})
+target_link_libraries(pcalib ${REQUIRED_LIBRARIES})
+target_include_directories(pcalib PUBLIC ${REQUIRED_INCLUDE_DIRS})
+set_property(TARGET pcalib PROPERTY CXX_STANDARD 14)
 
 # build applications
 

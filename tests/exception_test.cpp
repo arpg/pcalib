@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include <photocalib/exception.h>
+#include <pcalib/exception.h>
 
-namespace photocalib
+namespace pcalib
 {
 namespace testing
 {
@@ -173,4 +173,4 @@ TEST(Exception, Debug)
 
 } // namespace testing
 
-} // namespace photocalib
+} // namespace pcalib

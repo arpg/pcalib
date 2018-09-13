@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include <photocalib/controller.h>
+#include <pcalib/controller.h>
 
-namespace photocalib
+namespace pcalib
 {
 namespace testing
 {
@@ -103,4 +103,4 @@ TEST(Controller, Update)
 
 } // namespace testing
 
-} // namespace photocalib
+} // namespace pcalib

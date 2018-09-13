@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <Eigen/Eigen>
-#include <photocalib/light.h>
+#include <pcalib/light.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 struct LightSample
@@ -21,4 +21,4 @@ struct LightProblem
   std::vector<LightSample> samples;
 };
 
-} // namespace photocalib
+} // namespace pcalib

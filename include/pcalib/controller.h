@@ -2,11 +2,11 @@
 
 #include <cmath>
 #include <limits>
-#include <photocalib/exception.h>
+#include <pcalib/exception.h>
 
 #include <iostream>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Controller
@@ -185,4 +185,4 @@ class Controller
     int iteration_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

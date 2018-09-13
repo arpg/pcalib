@@ -1,11 +1,11 @@
-#include <photocalib/hal_camera.h>
+#include <pcalib/hal_camera.h>
 #include <HAL/Camera/CameraDevice.h>
 #include <HAL/Camera/Drivers/OpenNI2/OpenNI2Driver.h>
 #include <HAL/Camera/Drivers/RealSense2/RealSense2Driver.h>
-#include <photocalib/exception.h>
-#include <photocalib/image.h>
+#include <pcalib/exception.h>
+#include <pcalib/image.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 HalCamera::HalCamera(const std::string& uri) :
@@ -78,4 +78,4 @@ void HalCamera::PrepareCapture()
   camera_->Capture(images);
 }
 
-} // namespace photocalib
+} // namespace pcalib

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <photocalib/image.h>
-#include <photocalib/controller.h>
+#include <pcalib/image.h>
+#include <pcalib/controller.h>
 
-namespace photocalib
+namespace pcalib
 {
 
 class Image;
@@ -92,4 +92,4 @@ class Camera
     int last_exposure_update_;
 };
 
-} // namespace photocalib
+} // namespace pcalib

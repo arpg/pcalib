@@ -1,9 +1,9 @@
-#include <photocalib/camera.h>
-#include <photocalib/image.h>
+#include <pcalib/camera.h>
+#include <pcalib/image.h>
 
 #include <iostream>
 
-namespace photocalib
+namespace pcalib
 {
 
 Camera::Camera() :
@@ -124,4 +124,4 @@ void Camera::CreateExposureController()
   exposure_controller_.set_lower_bound(1);
 }
 
-} // namespace photocalib
+} // namespace pcalib

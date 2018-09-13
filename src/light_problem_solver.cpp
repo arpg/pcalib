@@ -1,12 +1,12 @@
-#include <photocalib/light_problem_solver.h>
+#include <pcalib/light_problem_solver.h>
 #include <random>
 #include <ceres/ceres.h>
-#include <photocalib/exception.h>
-#include <photocalib/light_problem.h>
+#include <pcalib/exception.h>
+#include <pcalib/light_problem.h>
 
 #include <iostream>
 
-namespace photocalib
+namespace pcalib
 {
 
 struct LightFunctor
@@ -218,4 +218,4 @@ void LightProblemSolver::SolveProblem(const LightProblem& problem,
   light.set_position(position);
 }
 
-} // namespace photocalib
+} // namespace pcalib
