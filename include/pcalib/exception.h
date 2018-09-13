@@ -3,21 +3,21 @@
 #include <exception>
 #include <string>
 
-#define PHOTOCALIB_THROW(text) \
+#define PCALIB_THROW(text) \
   throw ::pcalib::Exception(__LINE__, __FILE__, text)
 
-#define PHOTOCALIB_ASSERT_MSG(cond, text) \
-  if (!(cond)) PHOTOCALIB_THROW(text)
+#define PCALIB_ASSERT_MSG(cond, text) \
+  if (!(cond)) PCALIB_THROW(text)
 
-#define PHOTOCALIB_ASSERT(cond) \
-  PHOTOCALIB_ASSERT_MSG(cond, "assertion failed: " #cond)
+#define PCALIB_ASSERT(cond) \
+  PCALIB_ASSERT_MSG(cond, "assertion failed: " #cond)
 
 #ifdef NDEBUG
-#define PHOTOCALIB_DEBUG_MSG(cond, text) if (!(cond)) {}
-#define PHOTOCALIB_DEBUG(cond) if (!(cond)) {}
+#define PCALIB_DEBUG_MSG(cond, text) if (!(cond)) {}
+#define PCALIB_DEBUG(cond) if (!(cond)) {}
 #else
-#define PHOTOCALIB_DEBUG_MSG PHOTOCALIB_ASSERT_MSG
-#define PHOTOCALIB_DEBUG PHOTOCALIB_ASSERT
+#define PCALIB_DEBUG_MSG PCALIB_ASSERT_MSG
+#define PCALIB_DEBUG PCALIB_ASSERT
 #endif
 
 namespace pcalib

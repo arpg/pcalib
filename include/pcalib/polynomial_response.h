@@ -33,7 +33,7 @@ class PolynomialResponse
 
     void set_degree(int degree)
     {
-      PHOTOCALIB_ASSERT_MSG(degree >= 1, "degree must be positive");
+      PCALIB_ASSERT_MSG(degree >= 1, "degree must be positive");
       const int min_degree = std::min(degree, int(coeffs_.size()));
       Eigen::VectorXd coeffs(degree);
       coeffs.setZero();
@@ -48,19 +48,19 @@ class PolynomialResponse
 
     void set_parameters(const Eigen::VectorXd& coeffs)
     {
-      PHOTOCALIB_ASSERT_MSG(coeffs.size() == coeffs_.size(), "degree mismatch");
+      PCALIB_ASSERT_MSG(coeffs.size() == coeffs_.size(), "degree mismatch");
       coeffs_ = coeffs;
     }
 
     const double& operator[](int index) const
     {
-      PHOTOCALIB_DEBUG(index >= 0 && index < coeffs_.size());
+      PCALIB_DEBUG(index >= 0 && index < coeffs_.size());
       return coeffs_[index];
     }
 
     double& operator[](int index)
     {
-      PHOTOCALIB_DEBUG(index >= 0 && index < coeffs_.size());
+      PCALIB_DEBUG(index >= 0 && index < coeffs_.size());
       return coeffs_[index];
     }
 

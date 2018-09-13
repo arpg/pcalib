@@ -13,13 +13,13 @@ ResponseProblemBuilder::ResponseProblemBuilder()
 
 void ResponseProblemBuilder::AddImage(const Image& image)
 {
-  PHOTOCALIB_ASSERT_MSG(image.exposure() > 0, "invalid image exposure");
+  PCALIB_ASSERT_MSG(image.exposure() > 0, "invalid image exposure");
 
   if (!images_.empty())
   {
     const Image& front = images_.front();
-    PHOTOCALIB_ASSERT_MSG(front.width() == image.width(), "size mismatch");
-    PHOTOCALIB_ASSERT_MSG(front.height() == image.height(), "size mismatch");
+    PCALIB_ASSERT_MSG(front.width() == image.width(), "size mismatch");
+    PCALIB_ASSERT_MSG(front.height() == image.height(), "size mismatch");
   }
 
   images_.push_back(image);
@@ -27,7 +27,7 @@ void ResponseProblemBuilder::AddImage(const Image& image)
 
 void ResponseProblemBuilder::Build(ResponseProblem& problem)
 {
-  PHOTOCALIB_ASSERT_MSG(images_.size() > 1, "insufficient image count");
+  PCALIB_ASSERT_MSG(images_.size() > 1, "insufficient image count");
 
   problem.correspondences.clear();
   ResponseProblem::Correspondence correspondence;

@@ -55,7 +55,7 @@ class Image
 
     inline void set_exposure(double exposure)
     {
-      PHOTOCALIB_DEBUG(exposure >= 0.0);
+      PCALIB_DEBUG(exposure >= 0.0);
       exposure_ = exposure;
     }
 
@@ -79,7 +79,7 @@ class Image
 
     Image& operator+=(const Image& rhs)
     {
-      PHOTOCALIB_ASSERT_MSG(exposure_ == rhs.exposure(), "exposure mismatch");
+      PCALIB_ASSERT_MSG(exposure_ == rhs.exposure(), "exposure mismatch");
       data_ += rhs.data();
       return *this;
     }

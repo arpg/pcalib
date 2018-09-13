@@ -32,8 +32,8 @@ int main(int argc, char** argv)
 {
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  PHOTOCALIB_ASSERT_MSG(!FLAGS_cam.empty(), "missing HAL camera uri");
-  PHOTOCALIB_ASSERT_MSG(!FLAGS_calib.empty(), "missing camera calibration");
+  PCALIB_ASSERT_MSG(!FLAGS_cam.empty(), "missing HAL camera uri");
+  PCALIB_ASSERT_MSG(!FLAGS_calib.empty(), "missing camera calibration");
 
   typedef Eigen::Matrix<unsigned char, 3, 1> Pixel;
 

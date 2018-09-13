@@ -77,7 +77,7 @@ class Controller
 
     inline void set_integral_delay(int delay)
     {
-      PHOTOCALIB_ASSERT_MSG(delay >= 0, "delay cannot be negative");
+      PCALIB_ASSERT_MSG(delay >= 0, "delay cannot be negative");
       integral_delay_ = delay;
     }
 

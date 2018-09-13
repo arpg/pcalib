@@ -144,8 +144,8 @@ int main(int argc, char** argv)
 
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  PHOTOCALIB_ASSERT_MSG(!FLAGS_cam.empty(), "missing camera uri");
-  PHOTOCALIB_ASSERT_MSG(!FLAGS_output.empty(), "missing output file");
+  PCALIB_ASSERT_MSG(!FLAGS_cam.empty(), "missing camera uri");
+  PCALIB_ASSERT_MSG(!FLAGS_output.empty(), "missing output file");
 
   LOG(INFO) << "Creating camera...";
 

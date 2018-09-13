@@ -32,7 +32,7 @@ TEST(Exception, Throw)
   try
   {
     expected_line = __LINE__ + 1;
-    PHOTOCALIB_THROW(expected_text);
+    PCALIB_THROW(expected_text);
   }
   catch (const Exception& exception)
   {
@@ -59,7 +59,7 @@ TEST(Exception, AssertMessage)
   try
   {
     expected_line = __LINE__ + 1;
-    PHOTOCALIB_ASSERT_MSG(0 > 1, expected_text);
+    PCALIB_ASSERT_MSG(0 > 1, expected_text);
   }
   catch (const Exception& exception)
   {
@@ -74,7 +74,7 @@ TEST(Exception, AssertMessage)
   }
 
   ASSERT_TRUE(thrown);
-  ASSERT_NO_THROW(PHOTOCALIB_ASSERT_MSG(0 < 1, ""));
+  ASSERT_NO_THROW(PCALIB_ASSERT_MSG(0 < 1, ""));
 }
 
 TEST(Exception, Assert)
@@ -87,7 +87,7 @@ TEST(Exception, Assert)
   try
   {
     expected_line = __LINE__ + 1;
-    PHOTOCALIB_ASSERT(0 > 1);
+    PCALIB_ASSERT(0 > 1);
   }
   catch (const Exception& exception)
   {
@@ -102,7 +102,7 @@ TEST(Exception, Assert)
   }
 
   ASSERT_TRUE(thrown);
-  ASSERT_NO_THROW(PHOTOCALIB_ASSERT(0 < 1));
+  ASSERT_NO_THROW(PCALIB_ASSERT(0 < 1));
 }
 
 TEST(Exception, DebugMessage)
@@ -115,7 +115,7 @@ TEST(Exception, DebugMessage)
   try
   {
     expected_line = __LINE__ + 1;
-    PHOTOCALIB_DEBUG_MSG(0 > 1, expected_text);
+    PCALIB_DEBUG_MSG(0 > 1, expected_text);
   }
   catch (const Exception& exception)
   {
@@ -135,7 +135,7 @@ TEST(Exception, DebugMessage)
   ASSERT_TRUE(thrown);
 #endif
 
-  ASSERT_NO_THROW(PHOTOCALIB_DEBUG_MSG(0 < 1, ""));
+  ASSERT_NO_THROW(PCALIB_DEBUG_MSG(0 < 1, ""));
 }
 
 TEST(Exception, Debug)
@@ -148,7 +148,7 @@ TEST(Exception, Debug)
   try
   {
     expected_line = __LINE__ + 1;
-    PHOTOCALIB_DEBUG(0 > 1);
+    PCALIB_DEBUG(0 > 1);
   }
   catch (const Exception& exception)
   {
@@ -168,7 +168,7 @@ TEST(Exception, Debug)
   ASSERT_TRUE(thrown);
 #endif
 
-  ASSERT_NO_THROW(PHOTOCALIB_DEBUG(0 < 1));
+  ASSERT_NO_THROW(PCALIB_DEBUG(0 < 1));
 }
 
 } // namespace testing

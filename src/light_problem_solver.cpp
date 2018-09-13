@@ -58,7 +58,7 @@ double LightProblemSolver::inlier_threshold() const
 
 void LightProblemSolver::set_inlier_threshold(double threshold)
 {
-  PHOTOCALIB_ASSERT_MSG(threshold > 0, "threshold must be positive");
+  PCALIB_ASSERT_MSG(threshold > 0, "threshold must be positive");
   inlier_threshold_ = threshold;
 }
 
@@ -69,7 +69,7 @@ int LightProblemSolver::ransac_iterations() const
 
 void LightProblemSolver::set_ransac_iterations(int iterations)
 {
-  PHOTOCALIB_ASSERT_MSG(iterations >= 0, "iteration count cannot be negative");
+  PCALIB_ASSERT_MSG(iterations >= 0, "iteration count cannot be negative");
   ransac_iterations_ = iterations;
 }
 

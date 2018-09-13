@@ -28,7 +28,7 @@ class Light
 
     inline void set_intensity(T intensity)
     {
-      PHOTOCALIB_DEBUG_MSG(intensity > T(0), "intensity must be positive");
+      PCALIB_DEBUG_MSG(intensity > T(0), "intensity must be positive");
       intensity_ = intensity;
     }
 

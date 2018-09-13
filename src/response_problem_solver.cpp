@@ -78,7 +78,7 @@ double ResponseProblemSolver<Response>::inlier_threshold() const
 template<typename Response>
 void ResponseProblemSolver<Response>::set_inlier_threshold(double threshold)
 {
-  PHOTOCALIB_ASSERT_MSG(threshold > 0, "threshold must be positive");
+  PCALIB_ASSERT_MSG(threshold > 0, "threshold must be positive");
   inlier_threshold_ = threshold;
 }
 
@@ -91,7 +91,7 @@ int ResponseProblemSolver<Response>::ransac_iterations() const
 template <typename Response>
 void ResponseProblemSolver<Response>::set_ransac_iterations(int iterations)
 {
-  PHOTOCALIB_ASSERT_MSG(iterations >= 0, "iteration count cannot be negative");
+  PCALIB_ASSERT_MSG(iterations >= 0, "iteration count cannot be negative");
   ransac_iterations_ = iterations;
 }
 

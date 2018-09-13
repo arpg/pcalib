@@ -47,8 +47,8 @@ int HalCamera::exposure_delay() const
 void HalCamera::Capture(cv::Mat& data)
 {
   std::vector<cv::Mat> images;
-  PHOTOCALIB_DEBUG_MSG(camera_->Capture(images), "failed to capture image");
-  PHOTOCALIB_DEBUG_MSG(images.size() == 1, "invalid camera stream count");
+  PCALIB_DEBUG_MSG(camera_->Capture(images), "failed to capture image");
+  PCALIB_DEBUG_MSG(images.size() == 1, "invalid camera stream count");
   data = images[0];
 }
 
@@ -64,7 +64,7 @@ void HalCamera::CreateDriver()
   typedef hal::RealSense2Driver Type;
   driver_ = dynamic_cast<Type*>(camera_->GetDriver());
   if (!driver_) driver_ = dynamic_cast<Type*>(camera_->GetInputDevice().get());
-  PHOTOCALIB_ASSERT_MSG(driver_, "openni2 camera required");
+  PCALIB_ASSERT_MSG(driver_, "openni2 camera required");
 }
 
 void HalCamera::PrepareCapture()

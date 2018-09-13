@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(Photocalib)
+project(pcalib)
 
 # find packages
 
@@ -112,7 +112,7 @@ endif()
 
 foreach(CPP_HEADER ${CPP_HEADERS})
   string(REPLACE "include/" "" CPP_HEADER ${CPP_HEADER})
-  set(PHOTOCALIB_INCLUDES "${PHOTOCALIB_INCLUDES}\n#include <${CPP_HEADER}>")
+  set(PCALIB_INCLUDES "${PCALIB_INCLUDES}\n#include <${CPP_HEADER}>")
 endforeach()
 
 foreach(CPP_CONFIG ${CPP_CONFIGS})
@@ -128,16 +128,16 @@ set_property(TARGET pcalib PROPERTY CXX_STANDARD 14)
 
 # build applications
 
-option(PHOTOCALIB_BUILD_APPS "Build applications" ON)
+option(PCALIB_BUILD_APPS "Build applications" ON)
 
-if(PHOTOCALIB_BUILD_APPS)
+if(PCALIB_BUILD_APPS)
   add_subdirectory(apps)
 endif()
 
 # build unit tests
 
-option(PHOTOCALIB_BUILD_TESTS "Build unit tests" OFF)
+option(PCALIB_BUILD_TESTS "Build unit tests" OFF)
 
-if(PHOTOCALIB_BUILD_TESTS)
+if(PCALIB_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
