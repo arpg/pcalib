@@ -152,8 +152,8 @@ int main(int argc, char** argv)
   Image image;
   std::shared_ptr<Camera> camera;
   camera = std::make_shared<HalCamera>(FLAGS_cam);
-  camera->set_exposure(50);
-  camera->set_gain(1);
+  camera->set_exposure(10);
+  camera->set_gain(250);
   camera->Capture(image);
 
   std::vector<double> channel_means(3);
@@ -199,17 +199,46 @@ int main(int argc, char** argv)
   initial_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
   current_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
 
+  const int channel = 0;
+  // xtion r-response:  0.504067,  0.0248056,  0.471128
+  // xtion g-response:  0.562788, -0.1259750,  0.563188
+  // xtion b-response:  0.802539, -0.8173700,  1.014830
+
   int target_index = 0;
   std::vector<ExposureTarget> targets;
-  targets.push_back(ExposureTarget( 25, channel_order[2]));
-  targets.push_back(ExposureTarget( 50, channel_order[2]));
-  targets.push_back(ExposureTarget(100, channel_order[2]));
-  targets.push_back(ExposureTarget(150, channel_order[0]));
-  targets.push_back(ExposureTarget(200, channel_order[0]));
-  targets.push_back(ExposureTarget(225, channel_order[0]));
+
+  for (int i = 0; i < 19; ++i)
+  {
+    targets.push_back(ExposureTarget(50 + 10 * i, channel));
+  }
+
+  // targets.push_back(ExposureTarget( 50, 2));
+  // targets.push_back(ExposureTarget( 75, 2));
+  // targets.push_back(ExposureTarget(100, 2));
+  // targets.push_back(ExposureTarget(125, 2));
+  // targets.push_back(ExposureTarget(150, 2));
+  // targets.push_back(ExposureTarget(175, 2));
+  // targets.push_back(ExposureTarget(200, 2));
+  // targets.push_back(ExposureTarget(225, 2));
+  // targets.push_back(ExposureTarget(240, 2));
+
+  // targets.push_back(ExposureTarget( 25, channel_order[2]));
+  // targets.push_back(ExposureTarget( 50, channel_order[2]));
+  // targets.push_back(ExposureTarget(100, channel_order[2]));
+  // targets.push_back(ExposureTarget(150, channel_order[0]));
+  // targets.push_back(ExposureTarget(200, channel_order[0]));
+  // targets.push_back(ExposureTarget(225, channel_order[0]));
+
+  // targets.push_back(ExposureTarget( 25, channel));
+  // targets.push_back(ExposureTarget( 50, channel));
+  // targets.push_back(ExposureTarget(100, channel));
+  // targets.push_back(ExposureTarget(150, channel));
+  // targets.push_back(ExposureTarget(200, channel));
+  // targets.push_back(ExposureTarget(225, channel));
+
   camera->set_exposure_target(targets[target_index]);
   camera->set_exposure(0);
-  camera->set_gain(1);
+  camera->set_gain(128);
 
   int frame_count = 0;
   int last_change = 0;
@@ -332,7 +361,7 @@ int main(int argc, char** argv)
         cv::Mat mat = images[target_index].data().clone();
         mat.convertTo(mat, CV_8UC3, 255.0);
         cv::cvtColor(mat, mat, CV_BGR2RGB);
-        cv::imwrite("image" + std::to_string(target_index) + ".png", mat);
+        cv::imwrite("exposure_" + std::to_string(camera->exposure()) + ".png", mat);
 
         target_index = (target_index + 1) % targets.size();
 
@@ -349,7 +378,7 @@ int main(int argc, char** argv)
     }
     else
     {
-      if (frame_count == 0 || std::abs(last_exposure - exposure) > 0.1)
+      if (frame_count == 0 || std::abs(last_exposure - exposure) / last_exposure > 0.025)
       {
         last_change = frame_count;
       }
@@ -389,16 +418,39 @@ int main(int argc, char** argv)
     LOG(INFO) << "Correspondences: " << problem->correspondences.size();
 
     std::shared_ptr<PolynomialResponse> response;
-    response = std::make_shared<PolynomialResponse>(3);
+    response = std::make_shared<PolynomialResponse>(4);
 
     cv::Mat a, b;
-    cv::resize(images[2].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
-    cv::resize(images[3].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+    // cv::resize(images[2].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+    // cv::resize(images[3].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+    cv::resize(images[1 * targets.size() / 4].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+    cv::resize(images[3 * targets.size() / 4].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
+
+    cv::Mat z = cv::Mat::zeros(240, 320, CV_32FC1);
+    std::vector<cv::Mat> ac;
+    std::vector<cv::Mat> bc;
+    cv::split(a, ac);
+    cv::split(b, bc);
+
+    for (int i = 0; i < 3; ++i)
+    {
+      if (i == channel) continue;
+      ac[i] = z;
+      bc[i] = z;
+    }
+
+    a = cv::Mat();
+    b = cv::Mat();
+    cv::merge(ac, a);
+    cv::merge(bc, b);
 
     aa = Image(a);
     bb = Image(b);
-    aa.set_exposure(images[2].exposure());
-    bb.set_exposure(images[3].exposure());
+
+    // aa.set_exposure(images[2].exposure());
+    // bb.set_exposure(images[3].exposure());
+    aa.set_exposure(images[1 * targets.size() / 4].exposure());
+    bb.set_exposure(images[3 * targets.size() / 4].exposure());
 
     ResponseCallback(*response);
 

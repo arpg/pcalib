@@ -1,6 +1,7 @@
 #include <photocalib/hal_camera.h>
 #include <HAL/Camera/CameraDevice.h>
 #include <HAL/Camera/Drivers/OpenNI2/OpenNI2Driver.h>
+#include <HAL/Camera/Drivers/RealSense2/RealSense2Driver.h>
 #include <photocalib/exception.h>
 #include <photocalib/image.h>
 
@@ -59,7 +60,8 @@ void HalCamera::Initialize()
 
 void HalCamera::CreateDriver()
 {
-  typedef hal::OpenNI2Driver Type;
+  // typedef hal::OpenNI2Driver Type;
+  typedef hal::RealSense2Driver Type;
   driver_ = dynamic_cast<Type*>(camera_->GetDriver());
   if (!driver_) driver_ = dynamic_cast<Type*>(camera_->GetInputDevice().get());
   PHOTOCALIB_ASSERT_MSG(driver_, "openni2 camera required");

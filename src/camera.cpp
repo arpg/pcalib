@@ -107,12 +107,20 @@ void Camera::CreateExposureController()
   // exposure_controller_.set_proportional_gain(0.25);
   // exposure_controller_.set_integral_gain(0.02);
 
-  // xtion
-  exposure_controller_.set_proportional_gain(0.05);
-  exposure_controller_.set_integral_gain(0.01);
+  // // xtion
+  // exposure_controller_.set_proportional_gain(0.05);
+  // exposure_controller_.set_integral_gain(0.01);
 
-  exposure_controller_.set_integral_delay(4);
-  exposure_controller_.set_upper_bound(500);
+  // exposure_controller_.set_integral_delay(4);
+  // exposure_controller_.set_upper_bound(500);
+  // exposure_controller_.set_lower_bound(1);
+
+  // realsense2
+  exposure_controller_.set_proportional_gain(0.5);
+  exposure_controller_.set_integral_gain(0.02);
+
+  exposure_controller_.set_integral_delay(1);
+  exposure_controller_.set_upper_bound(10000);
   exposure_controller_.set_lower_bound(1);
 }
 

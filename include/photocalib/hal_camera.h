@@ -8,6 +8,7 @@ namespace hal
 
 class Camera;
 class OpenNI2Driver;
+class RealSense2Driver;
 
 } // namespace hal
 
@@ -48,7 +49,9 @@ class HalCamera : public Camera
 
     std::unique_ptr<hal::Camera> camera_;
 
-    hal::OpenNI2Driver* driver_;
+    // hal::OpenNI2Driver* driver_;
+
+    hal::RealSense2Driver* driver_;
 };
 
 } // namespace photocalib

@@ -122,7 +122,7 @@ int main(int argc, char** argv)
   const Eigen::Vector2d grid_radius_sizes(grid_small_radius, grid_large_radius);
   Eigen::Map<const Eigen::VectorXi> grid_radius_map(grid_t.data(), grid.size());
 
-  const double radius_scale = 1.35;
+  const double radius_scale = 1.5;
 
   for (int i = 0; i < conic_count; ++i)
   {
@@ -163,13 +163,27 @@ int main(int argc, char** argv)
   // programmatrically create new pcalib camera interface
     // myself for now, use hal later once integrated
 
-  PolynomialResponse response(3);
+  // PolynomialResponse response(3);
 
   // // orbbec
   // response.set_parameters(Eigen::Vector3d(0.999711, -1.37383, 1.37412));
 
   // xtion
-  response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
+  // response.set_parameters(Eigen::Vector3d(0.506497, 0.0934983, 0.400005));
+
+  PolynomialResponse r_response(3);
+  PolynomialResponse g_response(3);
+  PolynomialResponse b_response(3);
+
+  // // xtion
+  // r_response.set_parameters(Eigen::Vector3d(0.504067,  0.0248056,  0.471128));
+  // g_response.set_parameters(Eigen::Vector3d(0.562788, -0.1259750,  0.563188));
+  // b_response.set_parameters(Eigen::Vector3d(0.802539, -0.8173700,  1.014830));
+
+  // realsense
+  r_response.set_parameters(Eigen::Vector3d(0.5870380, -0.1319650, 0.5449270));
+  g_response.set_parameters(Eigen::Vector3d(0.5418860, -0.1029400, 0.5610540));
+  b_response.set_parameters(Eigen::Vector3d(0.5677160,  0.0366215, 0.3956630));
 
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();
@@ -354,9 +368,12 @@ int main(int argc, char** argv)
               const Eigen::Vector3f intensity = pixel.cast<float>() / 255;
 
               Eigen::Vector3f irradiance;
-              irradiance[0] = response(intensity[0]);
-              irradiance[1] = response(intensity[1]);
-              irradiance[2] = response(intensity[2]);
+              // irradiance[0] = response(intensity[0]);
+              // irradiance[1] = response(intensity[1]);
+              // irradiance[2] = response(intensity[2]);
+              irradiance[0] = r_response(intensity[0]);
+              irradiance[1] = g_response(intensity[1]);
+              irradiance[2] = b_response(intensity[2]);
 
               // if (x == 320 && y == 240)
               // {
@@ -510,10 +527,10 @@ int main(int argc, char** argv)
                 const unsigned char int10 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 0);
                 const unsigned char int11 = undistort_image.at<unsigned char>(pixel[1] + 1, pixel[0] + 1);
 
-                const float irr00 = response(int00 / 255.0);
-                const float irr01 = response(int01 / 255.0);
-                const float irr10 = response(int10 / 255.0);
-                const float irr11 = response(int11 / 255.0);
+                const float irr00 = r_response(int00 / 255.0);
+                const float irr01 = r_response(int01 / 255.0);
+                const float irr10 = r_response(int10 / 255.0);
+                const float irr11 = r_response(int11 / 255.0);
 
                 double irradiance = 0;
                 irradiance += w0[1] * w0[0] * irr00;
@@ -668,9 +685,12 @@ int main(int argc, char** argv)
         }
 
         Pixel pixel = images[0].at<Pixel>(y, x);
-        pixel[0] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[0] / 255.0))));
-        pixel[1] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[1] / 255.0))));
-        pixel[2] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[2] / 255.0))));
+        // pixel[0] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[0] / 255.0))));
+        // pixel[1] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[1] / 255.0))));
+        // pixel[2] = std::max(0.0, std::min(255.0, 255 * (scale * response(pixel[2] / 255.0))));
+        pixel[0] = std::max(0.0, std::min(255.0, 255 * (scale * r_response(pixel[0] / 255.0))));
+        pixel[1] = std::max(0.0, std::min(255.0, 255 * (scale * g_response(pixel[1] / 255.0))));
+        pixel[2] = std::max(0.0, std::min(255.0, 255 * (scale * b_response(pixel[2] / 255.0))));
         images[0].at<Pixel>(y, x) = pixel;
       }
     }

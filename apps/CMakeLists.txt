@@ -1,2 +1,3 @@
 add_subdirectory(photocalib)
 add_subdirectory(vignetting)
+add_subdirectory(lighting)

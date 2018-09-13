@@ -60,6 +60,10 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/camera.h
   ${CPP_HEADER_DIR}/exception.h
   ${CPP_HEADER_DIR}/image.h
+  ${CPP_HEADER_DIR}/light.h
+  ${CPP_HEADER_DIR}/light_problem.h
+  ${CPP_HEADER_DIR}/light_problem_builder.h
+  ${CPP_HEADER_DIR}/light_problem_solver.h
   ${CPP_HEADER_DIR}/polynomial_response.h
   ${CPP_HEADER_DIR}/response.h
   ${CPP_HEADER_DIR}/response_problem.h
@@ -79,6 +83,8 @@ set(CPP_SOURCES
   ${CPP_SOURCE_DIR}/calibration_reader.cpp
   ${CPP_SOURCE_DIR}/calibration_writer.cpp
   ${CPP_SOURCE_DIR}/camera.cpp
+  ${CPP_SOURCE_DIR}/light_problem_builder.cpp
+  ${CPP_SOURCE_DIR}/light_problem_solver.cpp
   ${CPP_SOURCE_DIR}/polynomial_response.cpp
   ${CPP_SOURCE_DIR}/response_problem_builder.cpp
   ${CPP_SOURCE_DIR}/response_problem_solver.cpp

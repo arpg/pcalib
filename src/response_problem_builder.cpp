@@ -65,19 +65,19 @@ void ResponseProblemBuilder::Build(ResponseProblem& problem)
             problem.correspondences.push_back(correspondence);
           }
 
-          if (a[1] > 0.01 && a[1] < 0.99 && b[1] > 0.01 && b[1] < 0.99)
-          {
-            correspondence.a.intensity = a[1];
-            correspondence.b.intensity = b[1];
-            problem.correspondences.push_back(correspondence);
-          }
+          // if (a[1] > 0.01 && a[1] < 0.99 && b[1] > 0.01 && b[1] < 0.99)
+          // {
+          //   correspondence.a.intensity = a[1];
+          //   correspondence.b.intensity = b[1];
+          //   problem.correspondences.push_back(correspondence);
+          // }
 
-          if (a[2] > 0.01 && a[2] < 0.99 && b[2] > 0.01 && b[2] < 0.99)
-          {
-            correspondence.a.intensity = a[2];
-            correspondence.b.intensity = b[2];
-            problem.correspondences.push_back(correspondence);
-          }
+          // if (a[2] > 0.01 && a[2] < 0.99 && b[2] > 0.01 && b[2] < 0.99)
+          // {
+          //   correspondence.a.intensity = a[2];
+          //   correspondence.b.intensity = b[2];
+          //   problem.correspondences.push_back(correspondence);
+          // }
         }
       }
     }
