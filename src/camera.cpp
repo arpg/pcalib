@@ -116,8 +116,8 @@ void Camera::CreateExposureController()
   // exposure_controller_.set_lower_bound(1);
 
   // realsense2
-  exposure_controller_.set_proportional_gain(0.5);
-  exposure_controller_.set_integral_gain(0.02);
+  exposure_controller_.set_proportional_gain(0.65);
+  exposure_controller_.set_integral_gain(0.035);
 
   exposure_controller_.set_integral_delay(1);
   exposure_controller_.set_upper_bound(10000);

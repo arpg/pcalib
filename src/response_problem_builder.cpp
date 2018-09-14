@@ -11,6 +11,16 @@ ResponseProblemBuilder::ResponseProblemBuilder()
 {
 }
 
+bool ResponseProblemBuilder::join_channels() const
+{
+  return join_channels_;
+}
+
+void ResponseProblemBuilder::set_join_channels(bool join)
+{
+  join_channels_ = join;
+}
+
 void ResponseProblemBuilder::AddImage(const Image& image)
 {
   PCALIB_ASSERT_MSG(image.exposure() > 0, "invalid image exposure");
@@ -25,10 +35,28 @@ void ResponseProblemBuilder::AddImage(const Image& image)
   images_.push_back(image);
 }
 
-void ResponseProblemBuilder::Build(ResponseProblem& problem)
+void ResponseProblemBuilder::Build(std::vector<ResponseProblem>& problems)
 {
   PCALIB_ASSERT_MSG(images_.size() > 1, "insufficient image count");
 
+  if (join_channels_)
+  {
+    problems.resize(1);
+    Build(-1, problems.front());
+  }
+  else
+  {
+    problems.resize(3);
+
+    for (size_t i = 0; i < problems.size(); ++i)
+    {
+      Build(i, problems[i]);
+    }
+  }
+}
+
+void ResponseProblemBuilder::Build(int channel, ResponseProblem& problem)
+{
   problem.correspondences.clear();
   ResponseProblem::Correspondence correspondence;
 
@@ -48,36 +76,33 @@ void ResponseProblemBuilder::Build(ResponseProblem& problem)
         {
           const Eigen::Vector3f a = image_i.data().at<Eigen::Vector3f>(y, x);
           const Eigen::Vector3f b = image_j.data().at<Eigen::Vector3f>(y, x);
+          const bool swap = image_i.exposure() > image_j.exposure();
+          const Eigen::Vector3f sa = swap ? b : a;
+          const Eigen::Vector3f sb = swap ? a : b;
 
-          if (image_i.exposure() < image_j.exposure())
-          {
-            if (a[0] > b[0] || a[1] > b[1] || a[2] > b[2]) continue;
-          }
-          else
-          {
-            if (a[0] < b[0] || a[1] < b[1] || a[2] < b[2]) continue;
-          }
-
-          if (a[0] > 0.01 && a[0] < 0.99 && b[0] > 0.01 && b[0] < 0.99)
+          if ((channel < 0 || channel == 0) && sa[0] < sb[0] &&
+              a[0] > 0.01 && a[0] < 0.99 && b[0] > 0.01 && b[0] < 0.99)
           {
             correspondence.a.intensity = a[0];
             correspondence.b.intensity = b[0];
             problem.correspondences.push_back(correspondence);
           }
 
-          // if (a[1] > 0.01 && a[1] < 0.99 && b[1] > 0.01 && b[1] < 0.99)
-          // {
-          //   correspondence.a.intensity = a[1];
-          //   correspondence.b.intensity = b[1];
-          //   problem.correspondences.push_back(correspondence);
-          // }
+          if ((channel < 0 || channel == 1) && sa[1] < sb[1] &&
+              a[1] > 0.01 && a[1] < 0.99 && b[1] > 0.01 && b[1] < 0.99)
+          {
+            correspondence.a.intensity = a[1];
+            correspondence.b.intensity = b[1];
+            problem.correspondences.push_back(correspondence);
+          }
 
-          // if (a[2] > 0.01 && a[2] < 0.99 && b[2] > 0.01 && b[2] < 0.99)
-          // {
-          //   correspondence.a.intensity = a[2];
-          //   correspondence.b.intensity = b[2];
-          //   problem.correspondences.push_back(correspondence);
-          // }
+          if ((channel < 0 || channel == 2) && sa[2] < sb[2] &&
+              a[2] > 0.01 && a[2] < 0.99 && b[2] > 0.01 && b[2] < 0.99)
+          {
+            correspondence.a.intensity = a[2];
+            correspondence.b.intensity = b[2];
+            problem.correspondences.push_back(correspondence);
+          }
         }
       }
     }

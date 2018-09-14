@@ -73,6 +73,7 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/vignetting_problem.h
   ${CPP_HEADER_DIR}/vignetting_problem_builder.h
   ${CPP_HEADER_DIR}/vignetting_problem_solver.h
+  ${CPP_HEADER_DIR}/visitor.h
 )
 
 # define c++ sources

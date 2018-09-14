@@ -2,11 +2,12 @@
 
 #include <Eigen/Eigen>
 #include <pcalib/exception.h>
+#include <pcalib/response.h>
 
 namespace pcalib
 {
 
-class PolynomialResponse
+class PolynomialResponse : public Response
 {
   public:
 
@@ -41,15 +42,20 @@ class PolynomialResponse
       std::swap(coeffs, coeffs_);
     }
 
-    const Eigen::VectorXd& parameters() const
+    int parameter_count() const override
+    {
+      return coeffs_.size();
+    }
+
+    Eigen::VectorXd parameters() const override
     {
       return coeffs_;
     }
 
-    void set_parameters(const Eigen::VectorXd& coeffs)
+    void set_parameters(const Eigen::VectorXd& params) override
     {
-      PCALIB_ASSERT_MSG(coeffs.size() == coeffs_.size(), "degree mismatch");
-      coeffs_ = coeffs;
+      PCALIB_ASSERT_MSG(params.size() == coeffs_.size(), "degree mismatch");
+      coeffs_ = params;
     }
 
     const double& operator[](int index) const
@@ -64,12 +70,7 @@ class PolynomialResponse
       return coeffs_[index];
     }
 
-    int parameter_count() const
-    {
-      return coeffs_.size();
-    }
-
-    double operator()(double value) const
+    inline double operator()(double value) const
     {
       return (*this)(coeffs_.data(), value);
     }
@@ -77,7 +78,7 @@ class PolynomialResponse
     template <typename Scalar>
     Scalar operator()(const Scalar* parameters, Scalar value) const
     {
-      // PHOTOCALIB_DEBUG(!std::isnan(value));
+      // PCALIB_DEBUG(!std::isnan(value));
 
       Scalar pow = value;
       Scalar result = Scalar(0);
@@ -89,6 +90,17 @@ class PolynomialResponse
       }
 
       return result;
+    }
+
+    void Accept(ResponseVisitor& visitor) const override
+    {
+      visitor.Visit(*this);
+    }
+
+    void Reset() override
+    {
+      coeffs_.setZero();
+      coeffs_[0] = 1.0;
     }
 
   protected:

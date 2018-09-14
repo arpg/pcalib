@@ -231,7 +231,7 @@ int main(int argc, char** argv)
   const double reference_aspect_ratio = double(twidth) / theight;
   const double stats_split = 1.0;
 
-  pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
+  pangolin::CreateGlutWindowAndBind("pcalib", 1200, 600);
 
   pangolin::View& camera_display = pangolin::Display("camera");
   camera_display.SetLock(pangolin::LockCenter, pangolin::LockCenter);

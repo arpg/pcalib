@@ -15,6 +15,8 @@ list(APPEND REQUIRED_LIBRARIES pthread)
 
 set(CPP_SOURCES
   camera_test.cpp
+  calibration_reader_test.cpp
+  calibration_writer_test.cpp
   controller_test.cpp
   exception_test.cpp
   polynomial_response_test.cpp

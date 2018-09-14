@@ -1,3 +1,5 @@
+#include <mutex>
+#include <thread>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <calibu/target/GridDefinitions.h>
@@ -12,8 +14,9 @@ DEFINE_string(output, "pcalib.xml", "output photometric calibration file");
 DEFINE_bool(response, true, "enable response calibration");
 DEFINE_bool(vignetting, true, "enable vignetting calibration");
 DEFINE_double(inlier_thresh, 0.01, "maximum response error for inliers");
-DEFINE_int32(ransac_iters, 5000, "number of ransac iterations");
+DEFINE_int32(ransac_iters, 500, "number of ransac iterations");
 DEFINE_int32(keyframe_images, 30, "number of images use for keyframe average");
+DEFINE_bool(join_channels, false, "join channels to compute a single response");
 
 DEFINE_int32(grid_height, 0, "");
 DEFINE_int32(grid_width, 0, "");
@@ -28,7 +31,8 @@ using namespace pcalib;
 Image aa;
 Image bb;
 int eiter = 0;
-double emax = 0.0;
+Eigen::Vector3f emax;
+int current_channel;
 
 pangolin::DataLog result_log;
 pangolin::View* camera_display;
@@ -37,16 +41,56 @@ pangolin::View* current_display;
 std::shared_ptr<pangolin::GlTexture> camera_texture;
 std::shared_ptr<pangolin::GlTexture> initial_texture;
 std::shared_ptr<pangolin::GlTexture> current_texture;
+std::vector<PolynomialResponse> responses;
+int last_channel;
+PolynomialResponse last_response;
+bool response_updated;
+std::mutex update_mutex;
+bool solved;
 
 inline void ResponseCallback(const PolynomialResponse& response)
 {
+  std::lock_guard<std::mutex> lock(update_mutex);
+  last_response = response;
+  response_updated = true;
+  responses[current_channel] = response;
+}
+
+inline void UpdateResponseTextures()
+{
+  int lcurrent_channel;
+  std::vector<PolynomialResponse> lresponses;
+  PolynomialResponse response;
+
+  {
+    std::lock_guard<std::mutex> lock(update_mutex);
+    if (!response_updated) return;
+    response = last_response;
+    response_updated = false;
+    lcurrent_channel = current_channel;
+    lresponses = responses;
+  }
+
   result_log.Clear();
 
   for (int i = 0; i < 100; ++i)
   {
     const double intensity = double(i) / 99;
-    const double irradiance = response(intensity);
-    result_log.Log(irradiance);
+    Eigen::Vector3d irradiances(intensity, intensity, intensity);
+
+    for (size_t j = 0; j < responses.size(); ++j)
+    {
+      if ((int)j == lcurrent_channel)
+      {
+        irradiances[j] = response(intensity);
+      }
+      else
+      {
+        irradiances[j] = responses[j](intensity);
+      }
+    }
+
+    result_log.Log(irradiances[0], irradiances[1], irradiances[2]);
   }
 
   cv::Mat cc = aa.data().clone();
@@ -63,68 +107,77 @@ inline void ResponseCallback(const PolynomialResponse& response)
       Eigen::Vector3f error(0, 0, 0);
       const Eigen::Vector3f ap = aa.data().at<Eigen::Vector3f>(y, x);
       const Eigen::Vector3f bp = bb.data().at<Eigen::Vector3f>(y, x);
+      const bool swap = aa.exposure() > bb.exposure();
+      const Eigen::Vector3f sa = swap ? bp : ap;
+      const Eigen::Vector3f sb = swap ? ap : bp;
 
-      if (ap[0] > bp[0] || ap[1] > bp[1] || ap[2] > bp[2]) continue;
-
-      if (ap[0] > 0.1 && ap[0] < 0.99 && bp[0] > 0.1 && bp[0] < 0.99)
+      for (int i = 0; i < 3; ++i)
       {
-        const double ai = response(ap[0]);
-        const double bi = response(bp[0]);
-        const double ir = bi / ai;
-        error[0] = std::abs(ir - er);
-      }
+        if ((lcurrent_channel < 0 || lcurrent_channel == i) && sa[i] < sb[i] &&
+            ap[i] > 0.01 && ap[i] < 0.99 && bp[i] > 0.01 && bp[i] < 0.99)
+        {
+          double ai;
+          double bi;
 
-      if (ap[1] > 0.1 && ap[1] < 0.99 && bp[1] > 0.1 && bp[1] < 0.99)
-      {
-        const double ai = response(ap[1]);
-        const double bi = response(bp[1]);
-        const double ir = bi / ai;
-        error[1] = std::abs(ir - er);
-      }
+          if (i == lcurrent_channel)
+          {
+            ai = response(ap[i]);
+            bi = response(bp[i]);
+          }
+          else
+          {
+            ai = responses[i](ap[i]);
+            bi = responses[i](bp[i]);
+          }
 
-      if (ap[2] > 0.1 && ap[2] < 0.99 && bp[2] > 0.1 && bp[2] < 0.99)
-      {
-        const double ai = response(ap[2]);
-        const double bi = response(bp[2]);
-        const double ir = bi / ai;
-        error[2] = std::abs(ir - er);
+          const double ir = bi / ai;
+          error[i] = std::abs(ir - er);
+        }
       }
 
       cc.at<Eigen::Vector3f>(y, x) = error;
     }
   }
 
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  if (eiter == 0)
+  if (lcurrent_channel != last_channel)
   {
+    std::vector<cv::Mat> channels;
+    cv::split(cc, channels);
+
+    for (size_t i = 0; i < channels.size(); ++i)
+    {
+      double cmin, cmax;
+      cv::minMaxLoc(channels[i], &cmin, &cmax);
+      emax[i] = cmax;
+
+      if (emax[i] > 0) channels[i] /= emax[i];
+    }
+
     cv::Mat dd;
-    double cmin;
-    cv::minMaxLoc(cc, &cmin, &emax);
+    cv::merge(channels, cc);
     cc.convertTo(dd, CV_8UC3, 255.0);
     const unsigned char* data = dd.data;
     initial_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
     current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-    ++eiter;
+
+    last_channel = lcurrent_channel;
   }
   else
   {
+    std::vector<cv::Mat> channels;
+    cv::split(cc, channels);
+
+    for (size_t i = 0; i < channels.size(); ++i)
+    {
+      if (emax[i] > 0) channels[i] /= emax[i];
+    }
+
     cv::Mat dd;
+    cv::merge(channels, cc);
     cc.convertTo(dd, CV_8UC3, 255.0);
     const unsigned char* data = dd.data;
     current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
   }
-
-  camera_display->Activate();
-  camera_texture->RenderToViewportFlipY();
-
-  initial_display->Activate();
-  initial_texture->RenderToViewportFlipY();
-
-  current_display->Activate();
-  current_texture->RenderToViewportFlipY();
-
-  pangolin::FinishFrame();
 }
 
 std::vector<size_t> sort_indexes(const std::vector<double>& values)
@@ -152,18 +205,31 @@ int main(int argc, char** argv)
   Image image;
   std::shared_ptr<Camera> camera;
   camera = std::make_shared<HalCamera>(FLAGS_cam);
-  camera->set_exposure(10);
-  camera->set_gain(250);
+  camera->set_exposure(100);
+  camera->set_gain(200);
+  camera->Capture(image);
+  camera->Capture(image);
   camera->Capture(image);
 
   std::vector<double> channel_means(3);
   channel_means[0] = image.mean(0);
   channel_means[1] = image.mean(1);
   channel_means[2] = image.mean(2);
-
   const std::vector<size_t> channel_order = sort_indexes(channel_means);
 
-  pangolin::CreateGlutWindowAndBind("Photocalib", 1200, 600);
+  std::cout << "means: " <<
+      channel_means[0] << " " <<
+      channel_means[1] << " " <<
+      channel_means[2] << std::endl;
+
+  std::cout << "order: " <<
+      channel_order[0] << " " <<
+      channel_order[1] << " " <<
+      channel_order[2] << std::endl;
+
+  LOG(INFO) << "Creating pangolin displays...";
+
+  pangolin::CreateGlutWindowAndBind("pcalib", 1200, 600);
 
   camera_display = &pangolin::Display("camera");
   camera_display->SetLock(pangolin::LockCenter, pangolin::LockCenter);
@@ -199,46 +265,21 @@ int main(int argc, char** argv)
   initial_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
   current_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
 
-  const int channel = 0;
-  // xtion r-response:  0.504067,  0.0248056,  0.471128
-  // xtion g-response:  0.562788, -0.1259750,  0.563188
-  // xtion b-response:  0.802539, -0.8173700,  1.014830
 
   int target_index = 0;
   std::vector<ExposureTarget> targets;
 
-  for (int i = 0; i < 19; ++i)
+  // for (int i = 0; i < 19; ++i)
+  for (int i = 0; i < 3; ++i)
   {
-    targets.push_back(ExposureTarget(50 + 10 * i, channel));
+    int channel = 0;
+    // targets.push_back(ExposureTarget(50 + 10 * i, channel));
+    targets.push_back(ExposureTarget(100 + 50 * i, channel));
   }
-
-  // targets.push_back(ExposureTarget( 50, 2));
-  // targets.push_back(ExposureTarget( 75, 2));
-  // targets.push_back(ExposureTarget(100, 2));
-  // targets.push_back(ExposureTarget(125, 2));
-  // targets.push_back(ExposureTarget(150, 2));
-  // targets.push_back(ExposureTarget(175, 2));
-  // targets.push_back(ExposureTarget(200, 2));
-  // targets.push_back(ExposureTarget(225, 2));
-  // targets.push_back(ExposureTarget(240, 2));
-
-  // targets.push_back(ExposureTarget( 25, channel_order[2]));
-  // targets.push_back(ExposureTarget( 50, channel_order[2]));
-  // targets.push_back(ExposureTarget(100, channel_order[2]));
-  // targets.push_back(ExposureTarget(150, channel_order[0]));
-  // targets.push_back(ExposureTarget(200, channel_order[0]));
-  // targets.push_back(ExposureTarget(225, channel_order[0]));
-
-  // targets.push_back(ExposureTarget( 25, channel));
-  // targets.push_back(ExposureTarget( 50, channel));
-  // targets.push_back(ExposureTarget(100, channel));
-  // targets.push_back(ExposureTarget(150, channel));
-  // targets.push_back(ExposureTarget(200, channel));
-  // targets.push_back(ExposureTarget(225, channel));
 
   camera->set_exposure_target(targets[target_index]);
   camera->set_exposure(0);
-  camera->set_gain(128);
+  camera->set_gain(64);
 
   int frame_count = 0;
   int last_change = 0;
@@ -250,12 +291,14 @@ int main(int argc, char** argv)
 
   pangolin::DataLog exposure_log;
   std::vector<std::string> exposure_labels;
+  exposure_labels.push_back("current intensity (r)");
+  exposure_labels.push_back("current intensity (g)");
+  exposure_labels.push_back("current intensity (b)");
   exposure_labels.push_back("target intensity");
-  exposure_labels.push_back("current intensity");
   exposure_log.SetLabels(exposure_labels);
 
   const double plot_length = 1.5 * targets.size() * max_fuse_count;
-  pangolin::Plotter exposure_plotter(&exposure_log, 0, plot_length, 0, 350);
+  pangolin::Plotter exposure_plotter(&exposure_log, 0, plot_length, 0, 450);
   pangolin::View& exposure_display = pangolin::Display("exposure_plot");
   exposure_display.SetBounds(0.0, 1.0, 0.0, 1.0);
   exposure_display.SetLock(pangolin::LockRight, pangolin::LockTop);
@@ -264,10 +307,12 @@ int main(int argc, char** argv)
   upper_stats_display.AddDisplay(exposure_display);
 
   std::vector<std::string> result_labels;
-  result_labels.push_back("response");
+  result_labels.push_back("response (r)");
+  result_labels.push_back("response (g)");
+  result_labels.push_back("response (b)");
   result_log.SetLabels(result_labels);
 
-  pangolin::Plotter result_plotter(&result_log, 0, 100, 0, 1.1, 25);
+  pangolin::Plotter result_plotter(&result_log, 0, 100, 0, 1.2, 25);
   pangolin::View& result_display = pangolin::Display("result_plot");
   result_display.SetBounds(0.0, 2.0 / 3.0, 0.0, 1.0);
   result_display.SetLock(pangolin::LockLeft, pangolin::LockBottom);
@@ -277,10 +322,12 @@ int main(int argc, char** argv)
   for (int i = 0; i < 100; ++i)
   {
     const double intensity = double(i) / 99;
-    result_log.Log(intensity);
+    result_log.Log(intensity, intensity, intensity);
   }
 
   ResponseProblemBuilder builder;
+  builder.set_join_channels(FLAGS_join_channels);
+  current_channel = FLAGS_join_channels ? -1 : 0;
 
   std::vector<Image> images(targets.size());
 
@@ -290,9 +337,8 @@ int main(int argc, char** argv)
 
     const double exposure = image.exposure();
     const ExposureTarget& target = targets[target_index];
-    const double feedback = image.mean(target.channel);
     const double setpoint = target.intensity;
-    exposure_log.Log(setpoint, feedback);
+    exposure_log.Log(image.mean(0), image.mean(1), image.mean(2), setpoint);
 
     if (fusing)
     {
@@ -383,7 +429,7 @@ int main(int argc, char** argv)
         last_change = frame_count;
       }
 
-      if (frame_count - last_change > 15)
+      if (frame_count - last_change > 25)
       {
         fusing = true;
         fuse_count = 0;
@@ -414,71 +460,60 @@ int main(int argc, char** argv)
   {
     std::shared_ptr<ResponseProblem> problem;
     problem = std::make_shared<ResponseProblem>();
-    builder.Build(*problem);
+    std::vector<ResponseProblem> problems;
+    builder.Build(problems);
+
     LOG(INFO) << "Correspondences: " << problem->correspondences.size();
 
     std::shared_ptr<PolynomialResponse> response;
-    response = std::make_shared<PolynomialResponse>(4);
+    response = std::make_shared<PolynomialResponse>(3);
+    responses.resize(problems.size());
 
     cv::Mat a, b;
-    // cv::resize(images[2].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
-    // cv::resize(images[3].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
     cv::resize(images[1 * targets.size() / 4].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
     cv::resize(images[3 * targets.size() / 4].data(), b, cv::Size(320, 240), 0, 0, CV_INTER_NN);
-
-    cv::Mat z = cv::Mat::zeros(240, 320, CV_32FC1);
-    std::vector<cv::Mat> ac;
-    std::vector<cv::Mat> bc;
-    cv::split(a, ac);
-    cv::split(b, bc);
-
-    for (int i = 0; i < 3; ++i)
-    {
-      if (i == channel) continue;
-      ac[i] = z;
-      bc[i] = z;
-    }
-
-    a = cv::Mat();
-    b = cv::Mat();
-    cv::merge(ac, a);
-    cv::merge(bc, b);
 
     aa = Image(a);
     bb = Image(b);
 
-    // aa.set_exposure(images[2].exposure());
-    // bb.set_exposure(images[3].exposure());
     aa.set_exposure(images[1 * targets.size() / 4].exposure());
     bb.set_exposure(images[3 * targets.size() / 4].exposure());
 
-    ResponseCallback(*response);
+    solved = false;
+    last_channel = -1;
 
-    ResponseProblemSolver<PolynomialResponse> solver(problem);
-    solver.set_inlier_threshold(FLAGS_inlier_thresh);
-    solver.set_ransac_iterations(FLAGS_ransac_iters);
-    solver.RegisterCallback(ResponseCallback);
-    solver.Solve(response);
+    for (int i = 0; i < 3; ++i) responses[i].set_degree(3);
 
-    Eigen::VectorXd params = response->parameters();
-    LOG(INFO) << "unnormalized params: " << params.transpose();
-    params /= (*response)(1.0);
-    LOG(INFO) << "normalized params  : " << params.transpose();
-    response->set_parameters(params);
-
-    result_log.Clear();
-
-    for (int i = 0; i < 100; ++i)
+    std::thread solver_thread([&]()
     {
-      const double intensity = double(i) / 99;
-      const double irradiance = (*response)(intensity);
-      result_log.Log(irradiance);
-    }
+      for (size_t i = 0; i < problems.size(); ++i)
+      {
+        {
+          std::lock_guard<std::mutex> lock(update_mutex);
+          current_channel = FLAGS_join_channels ? -1 : i;
+        }
+
+        *response = responses[i];
+        ResponseCallback(*response);
+        *problem = problems[i];
+
+        ResponseProblemSolver<PolynomialResponse> solver(problem);
+        solver.set_inlier_threshold(FLAGS_inlier_thresh);
+        solver.set_ransac_iterations(FLAGS_ransac_iters);
+        solver.RegisterCallback(ResponseCallback);
+        solver.Solve(response);
+
+        {
+          std::lock_guard<std::mutex> lock(update_mutex);
+          responses[i] = *response;
+        }
+      }
+
+      solved = true;
+    });
 
     cv::Mat irr_image;
     cv::Mat byte_irr_image;
-
-    camera->set_exposure(images[3].exposure());
 
     while (!pangolin::ShouldQuit())
     {
@@ -490,15 +525,17 @@ int main(int argc, char** argv)
         for (int x = 0; x < irr_image.cols; ++x)
         {
           Eigen::Vector3f pixel = irr_image.at<Eigen::Vector3f>(y, x);
-          pixel[0] = (*response)(pixel[0]);
-          pixel[1] = (*response)(pixel[1]);
-          pixel[2] = (*response)(pixel[2]);
+          pixel[0] = responses[0](pixel[0]);
+          pixel[1] = responses[1](pixel[1]);
+          pixel[2] = responses[2](pixel[2]);
           irr_image.at<Eigen::Vector3f>(y, x) = pixel;
         }
       }
 
       irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
       glClear(GL_COLOR_BUFFER_BIT);
+
+      UpdateResponseTextures();
 
       camera_display->Activate();
       unsigned char* data = byte_irr_image.data;
@@ -515,6 +552,86 @@ int main(int argc, char** argv)
       current_texture->RenderToViewportFlipY();
 
       pangolin::FinishFrame();
+
+      if (solved)
+      {
+        solver_thread.join();
+        break;
+      }
+    }
+
+    if (!pangolin::ShouldQuit())
+    {
+      Eigen::VectorXd params;
+
+      params = responses[0].parameters();
+      LOG(INFO) << "params 0: " << params.transpose();
+      params = responses[1].parameters();
+      LOG(INFO) << "params 1: " << params.transpose();
+      params = responses[2].parameters();
+      LOG(INFO) << "params 2: " << params.transpose();
+
+      eiter = 0;
+      current_channel = -1;
+
+      std::vector<PolynomialResponse> temp = responses;
+      for (PolynomialResponse& response : responses) response.Reset();
+      ResponseCallback(responses[0]);
+      responses = temp;
+      ResponseCallback(responses[0]);
+
+      // camera->set_exposure_target(ExposureTarget(127.5));
+      // camera->set_exposure(0);
+      // camera->set_gain(64);
+
+      Calibration calibration;
+      calibration.responses.resize(3);
+
+      for (size_t i = 0; i < calibration.responses.size(); ++i)
+      {
+        calibration.responses[i] =
+            std::make_shared<PolynomialResponse>(responses[i]);
+      }
+
+      CalibrationWriter writer(FLAGS_output);
+      writer.Write(calibration);
+    }
+
+    while (!pangolin::ShouldQuit())
+    {
+      // camera->Capture(image);
+      // image.data().convertTo(irr_image, CV_32FC3, 1.0 / 255.0);
+
+      // for (int y = 0; y < irr_image.rows; ++y)
+      // {
+      //   for (int x = 0; x < irr_image.cols; ++x)
+      //   {
+      //     Eigen::Vector3f pixel = irr_image.at<Eigen::Vector3f>(y, x);
+      //     pixel[0] = responses[0](pixel[0]);
+      //     pixel[1] = responses[1](pixel[1]);
+      //     pixel[2] = responses[2](pixel[2]);
+      //     irr_image.at<Eigen::Vector3f>(y, x) = pixel;
+      //   }
+      // }
+
+      // irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
+      // glClear(GL_COLOR_BUFFER_BIT);
+
+      camera_display->Activate();
+      // unsigned char* data = byte_irr_image.data;
+      // camera_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      camera_texture->RenderToViewportFlipY();
+
+      camera_display->Activate();
+      camera_texture->RenderToViewportFlipY();
+
+      initial_display->Activate();
+      initial_texture->RenderToViewportFlipY();
+
+      current_display->Activate();
+      current_texture->RenderToViewportFlipY();
+
+      // pangolin::FinishFrame();
 
       // TODO: vignetting calibration
     }
