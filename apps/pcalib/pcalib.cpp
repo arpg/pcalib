@@ -271,9 +271,9 @@ int main(int argc, char** argv)
   std::vector<ExposureTarget> targets;
   const int target_channel = FLAGS_join_channels ? -1 : channel_order[2];
 
-  for (int i = 0; i < 19; ++i)
+  for (int i = 0; i < 15; ++i)
   {
-    targets.push_back(ExposureTarget(50 + 10 * i, target_channel));
+    targets.push_back(ExposureTarget(50 + 14 * i, target_channel));
   }
 
   camera->set_exposure_target(targets[target_index]);

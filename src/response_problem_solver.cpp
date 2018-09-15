@@ -1,6 +1,7 @@
 #include <pcalib/response_problem_solver.h>
 #include <random>
 #include <ceres/ceres.h>
+#include <Eigen/Cholesky>
 #include <pcalib/exception.h>
 #include <pcalib/polynomial_response.h>
 #include <pcalib/response_problem.h>
@@ -35,13 +36,12 @@ struct ResponseFunctor
       const T exp_a = T(correspondence.a.exposure);
       const T exp_b = T(correspondence.b.exposure);
 
-      // const T irr_ratio = log(irr_b) - log(irr_a);
-      // const T exp_ratio = log(exp_b) - log(exp_a);
+      // const T irr_ratio = irr_b / irr_a;
+      // const T exp_ratio = exp_b / exp_a;
+      // residuals[i] = irr_ratio - exp_ratio;
 
-      const T irr_ratio = irr_b / irr_a;
-      const T exp_ratio = exp_b / exp_a;
-
-      residuals[i] = irr_ratio - exp_ratio;
+      const T exp_ratio = exp_a / exp_b;
+      residuals[i] = irr_a - exp_ratio * irr_b;
     }
 
     const T w = T(correspondences.size());
@@ -138,6 +138,14 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
   inliers.reserve(problem_->correspondences.size());
   int best_inlier_count = 0;
 
+  Eigen::ColPivHouseholderQR<Eigen::MatrixXd> solver;
+  Eigen::MatrixXd A(param_count, param_count);
+  Eigen::VectorXd b(param_count);
+
+  A.row(param_count - 1).setOnes();
+  b.setZero();
+  b[param_count - 1] = 1.0;
+
   for (int i = 0; i < ransac_iterations_; ++i)
   {
     if (i % 10 == 0)
@@ -153,41 +161,30 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
 
     std::vector<double> parameters = response->parameters();
 
-    ceres::Problem problem;
-    problem.AddParameterBlock(parameters.data(), parameters.size());
+    Eigen::Map<Eigen::VectorXd> x(parameters.data(), param_count);
 
-    ResponseFunctor<Response>* functor;
-    functor = new ResponseFunctor<Response>(correspondences);
-    functor->response = response;
+    for (size_t i = 0; i < correspondences.size(); ++i)
+    {
+      const double ea = correspondences[i].a.exposure;
+      const double eb = correspondences[i].b.exposure;
+      const double r = ea / eb;
 
-    ceres::DynamicAutoDiffCostFunction<ResponseFunctor<Response>>* cost;
-    cost = new ceres::DynamicAutoDiffCostFunction<ResponseFunctor<Response>>(functor);
-    cost->AddParameterBlock(parameters.size());
-    cost->SetNumResiduals(correspondences.size() + 1);
+      const double ia = correspondences[i].a.intensity;
+      const double ib = correspondences[i].b.intensity;
 
-    problem.AddResidualBlock(cost, nullptr, parameters.data());
+      for (size_t j = 0; j < parameters.size(); ++j)
+      {
+        A(i, j) = std::pow(ia, j + 1) - r * std::pow(ib, j + 1);
+      }
+    }
 
-    ceres::Solver::Options options;
-    options.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
-    options.minimizer_type = ceres::TRUST_REGION;
-
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
-    if (summary.termination_type == ceres::FAILURE) continue;
+    solver.compute(A);
+    if (solver.info() != Eigen::Success) continue;
+    x = solver.solve(b);
+    if (!(A * x).isApprox(b, 1E-6)) continue;
 
     Response new_response(parameters.size());
     new_response.set_parameters(parameters);
-
-    // double prev_irradiance = -1;
-
-    // for (int i = 0; i < 100; ++i)
-    // {
-    //   const double intensity = double(i) / 99;
-    //   const double irradiance = new_response(intensity);
-    //   if (irradiance < prev_irradiance) continue;
-    //   prev_irradiance = irradiance;
-    // }
-
     inliers.clear();
 
     for (const ResponseProblem::Correspondence& c : problem_->correspondences)
