@@ -181,9 +181,12 @@ int main(int argc, char** argv)
   // b_response.set_parameters(Eigen::Vector3d(0.802539, -0.8173700,  1.014830));
 
   // realsense
-  r_response.set_parameters(Eigen::Vector3d(0.5870380, -0.1319650, 0.5449270));
-  g_response.set_parameters(Eigen::Vector3d(0.5418860, -0.1029400, 0.5610540));
-  b_response.set_parameters(Eigen::Vector3d(0.5677160,  0.0366215, 0.3956630));
+  const std::vector<double> rr = { 0.5870380, -0.1319650, 0.5449270 };
+  const std::vector<double> rg = { 0.5418860, -0.1029400, 0.5610540 };
+  const std::vector<double> rb = { 0.5677160,  0.0366215, 0.3956630 };
+  r_response.set_parameters(rr);
+  g_response.set_parameters(rg);
+  b_response.set_parameters(rb);
 
   const int width = raw_camera->Width();
   const int height = raw_camera->Height();

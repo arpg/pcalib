@@ -174,7 +174,8 @@ int main(int argc, char** argv)
 
   // // xtion
   // response.set_parameters(Eigen::Vector3d(0.506497, .0934983, 0.400005));
-  response.set_parameters(Eigen::Vector3d(0.504067,  0.0248056,  0.471128));
+  const std::vector<double> rr = { 0.504067,  0.0248056,  0.471128 };
+  response.set_parameters(rr);
 
   cv::Mat vignetting = cv::imread("/home/mike/Code/pcalib/build/apps/vignetting/xtion_vignetting_smooth.png", CV_LOAD_IMAGE_ANYDEPTH);
   vignetting.convertTo(vignetting, CV_32FC1, 1.0 / 65535.0);

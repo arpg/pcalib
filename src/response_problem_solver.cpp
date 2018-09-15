@@ -151,7 +151,7 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
       correspondences[j] = problem_->correspondences[index];
     }
 
-    Eigen::VectorXd parameters = response->parameters();
+    std::vector<double> parameters = response->parameters();
 
     ceres::Problem problem;
     problem.AddParameterBlock(parameters.data(), parameters.size());
@@ -235,7 +235,7 @@ template <typename Response>
 void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response,
     ResponseProblem& subproblem)
 {
-  Eigen::VectorXd parameters = response->parameters();
+  std::vector<double> parameters = response->parameters();
 
   ceres::Problem problem;
   problem.AddParameterBlock(parameters.data(), parameters.size());
@@ -259,7 +259,6 @@ void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response,
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
-  std::cout << "params: " << parameters.transpose() << std::endl;
   std::cout << summary.FullReport() << std::endl;
 
   Response new_response(parameters.size());

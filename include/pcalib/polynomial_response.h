@@ -36,9 +36,9 @@ class PolynomialResponse : public Response
     {
       PCALIB_ASSERT_MSG(degree >= 1, "degree must be positive");
       const int min_degree = std::min(degree, int(coeffs_.size()));
-      Eigen::VectorXd coeffs(degree);
-      coeffs.setZero();
-      coeffs.head(min_degree) = coeffs_.head(min_degree);
+      std::vector<double> coeffs(degree);
+      std::fill(coeffs.begin(), coeffs.end(), 0.0);
+      std::copy(coeffs_.begin(), coeffs_.begin() + min_degree, coeffs.begin());
       std::swap(coeffs, coeffs_);
     }
 
@@ -47,12 +47,12 @@ class PolynomialResponse : public Response
       return coeffs_.size();
     }
 
-    Eigen::VectorXd parameters() const override
+    std::vector<double> parameters() const override
     {
       return coeffs_;
     }
 
-    void set_parameters(const Eigen::VectorXd& params) override
+    void set_parameters(const std::vector<double>& params) override
     {
       PCALIB_ASSERT_MSG(params.size() == coeffs_.size(), "degree mismatch");
       coeffs_ = params;
@@ -60,13 +60,13 @@ class PolynomialResponse : public Response
 
     const double& operator[](int index) const
     {
-      PCALIB_DEBUG(index >= 0 && index < coeffs_.size());
+      PCALIB_DEBUG(index >= 0 && index < (int)coeffs_.size());
       return coeffs_[index];
     }
 
     double& operator[](int index)
     {
-      PCALIB_DEBUG(index >= 0 && index < coeffs_.size());
+      PCALIB_DEBUG(index >= 0 && index < (int)coeffs_.size());
       return coeffs_[index];
     }
 
@@ -83,7 +83,7 @@ class PolynomialResponse : public Response
       Scalar pow = value;
       Scalar result = Scalar(0);
 
-      for (int i = 0; i < coeffs_.size(); ++i)
+      for (size_t i = 0; i < coeffs_.size(); ++i)
       {
         result += pow * parameters[i];
         pow *= value;
@@ -99,13 +99,13 @@ class PolynomialResponse : public Response
 
     void Reset() override
     {
-      coeffs_.setZero();
+      std::fill(coeffs_.begin(), coeffs_.end(), 0.0);
       coeffs_[0] = 1.0;
     }
 
   protected:
 
-    Eigen::VectorXd coeffs_;
+    std::vector<double> coeffs_;
 };
 
 } // namespace pcalib

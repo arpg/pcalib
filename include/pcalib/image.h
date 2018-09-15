@@ -62,7 +62,7 @@ class Image
     inline double mean(int channel = -1) const
     {
       const cv::Scalar means = cv::mean(data_);
-      return (channel < 0) ? cv::sum(means)[0] : means[channel];
+      return (channel < 0) ? cv::mean(means)[0] : means[channel];
     }
 
     inline const cv::Mat& data() const

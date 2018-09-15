@@ -269,12 +269,9 @@ int main(int argc, char** argv)
   int target_index = 0;
   std::vector<ExposureTarget> targets;
 
-  // for (int i = 0; i < 19; ++i)
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < 19; ++i)
   {
-    int channel = 0;
-    // targets.push_back(ExposureTarget(50 + 10 * i, channel));
-    targets.push_back(ExposureTarget(100 + 50 * i, channel));
+    targets.push_back(ExposureTarget(50 + 10 * i, channel_order[2]));
   }
 
   camera->set_exposure_target(targets[target_index]);
@@ -562,27 +559,20 @@ int main(int argc, char** argv)
 
     if (!pangolin::ShouldQuit())
     {
-      Eigen::VectorXd params;
-
-      params = responses[0].parameters();
-      LOG(INFO) << "params 0: " << params.transpose();
-      params = responses[1].parameters();
-      LOG(INFO) << "params 1: " << params.transpose();
-      params = responses[2].parameters();
-      LOG(INFO) << "params 2: " << params.transpose();
-
-      eiter = 0;
       current_channel = -1;
 
       std::vector<PolynomialResponse> temp = responses;
       for (PolynomialResponse& response : responses) response.Reset();
-      ResponseCallback(responses[0]);
-      responses = temp;
-      ResponseCallback(responses[0]);
 
-      // camera->set_exposure_target(ExposureTarget(127.5));
-      // camera->set_exposure(0);
-      // camera->set_gain(64);
+      response_updated = true;
+      UpdateResponseTextures();
+
+      responses = temp;
+
+      response_updated = true;
+      UpdateResponseTextures();
+
+      camera->set_exposure(3 * images[images.size() / 4].exposure());
 
       Calibration calibration;
       calibration.responses.resize(3);
@@ -599,27 +589,27 @@ int main(int argc, char** argv)
 
     while (!pangolin::ShouldQuit())
     {
-      // camera->Capture(image);
-      // image.data().convertTo(irr_image, CV_32FC3, 1.0 / 255.0);
+      camera->Capture(image);
+      image.data().convertTo(irr_image, CV_32FC3, 1.0 / 255.0);
 
-      // for (int y = 0; y < irr_image.rows; ++y)
-      // {
-      //   for (int x = 0; x < irr_image.cols; ++x)
-      //   {
-      //     Eigen::Vector3f pixel = irr_image.at<Eigen::Vector3f>(y, x);
-      //     pixel[0] = responses[0](pixel[0]);
-      //     pixel[1] = responses[1](pixel[1]);
-      //     pixel[2] = responses[2](pixel[2]);
-      //     irr_image.at<Eigen::Vector3f>(y, x) = pixel;
-      //   }
-      // }
+      for (int y = 0; y < irr_image.rows; ++y)
+      {
+        for (int x = 0; x < irr_image.cols; ++x)
+        {
+          Eigen::Vector3f pixel = irr_image.at<Eigen::Vector3f>(y, x);
+          pixel[0] = responses[0](pixel[0]);
+          pixel[1] = responses[1](pixel[1]);
+          pixel[2] = responses[2](pixel[2]);
+          irr_image.at<Eigen::Vector3f>(y, x) = pixel;
+        }
+      }
 
-      // irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
-      // glClear(GL_COLOR_BUFFER_BIT);
+      irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
+      glClear(GL_COLOR_BUFFER_BIT);
 
       camera_display->Activate();
-      // unsigned char* data = byte_irr_image.data;
-      // camera_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
+      unsigned char* data = byte_irr_image.data;
+      camera_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       camera_texture->RenderToViewportFlipY();
 
       camera_display->Activate();
@@ -631,7 +621,7 @@ int main(int argc, char** argv)
       current_display->Activate();
       current_texture->RenderToViewportFlipY();
 
-      // pangolin::FinishFrame();
+      pangolin::FinishFrame();
 
       // TODO: vignetting calibration
     }

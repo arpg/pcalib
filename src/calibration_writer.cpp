@@ -28,7 +28,7 @@ class Element
       element_->SetAttribute("type", type.c_str());
     }
 
-    virtual void SetParameters(const Eigen::Vector3d& params)
+    virtual void SetParameters(const std::vector<double>& params)
     {
       tinyxml2::XMLDocument* document = element_->GetDocument();
       tinyxml2::XMLElement* child = document->NewElement("params");
@@ -38,19 +38,19 @@ class Element
 
   protected:
 
-    virtual std::string ToString(const Eigen::Vector3d& values)
+    virtual std::string ToString(const std::vector<double>& values)
     {
       std::stringstream text;
       text << " [ ";
 
-      for (int i = 0; i < values.size() - 1; ++i)
+      for (size_t i = 0; i < values.size() - 1; ++i)
       {
         text << values[i] << "; ";
       }
 
-      if (values.size() > 0)
+      if (!values.empty())
       {
-        text << values.tail<1>();
+        text << values.back();
       }
 
       text << " ] ";

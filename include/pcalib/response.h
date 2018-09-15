@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Eigen/Eigen>
+#include <vector>
 #include <pcalib/exception.h>
 #include <pcalib/visitor.h>
 
@@ -25,9 +25,9 @@ class Response
 
     virtual int parameter_count() const = 0;
 
-    virtual Eigen::VectorXd parameters() const = 0;
+    virtual std::vector<double> parameters() const = 0;
 
-    virtual void set_parameters(const Eigen::VectorXd& params) = 0;
+    virtual void set_parameters(const std::vector<double>& params) = 0;
 
     virtual void Accept(ResponseVisitor& visitor) const = 0;
 
@@ -47,14 +47,14 @@ class LinearResponse : public Response
       return 0;
     }
 
-    Eigen::VectorXd parameters() const override
+    std::vector<double> parameters() const override
     {
-      return Eigen::VectorXd();
+      return std::vector<double>();
     }
 
-    void set_parameters(const Eigen::VectorXd& params) override
+    void set_parameters(const std::vector<double>& params) override
     {
-      PCALIB_ASSERT_MSG(params.size() > 0, "invalid parameter count");
+      PCALIB_ASSERT_MSG(!params.empty(), "invalid parameter count");
     }
 
     inline double operator()(double value) const

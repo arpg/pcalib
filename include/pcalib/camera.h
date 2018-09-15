@@ -79,8 +79,6 @@ class Camera
 
   private:
 
-    double target_;
-
     bool auto_exposure_enabled_;
 
     Controller exposure_controller_;
