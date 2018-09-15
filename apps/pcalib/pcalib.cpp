@@ -53,7 +53,17 @@ inline void ResponseCallback(const PolynomialResponse& response)
   std::lock_guard<std::mutex> lock(update_mutex);
   last_response = response;
   response_updated = true;
-  responses[current_channel] = response;
+
+  if (FLAGS_join_channels)
+  {
+    responses[0] = response;
+    responses[1] = response;
+    responses[2] = response;
+  }
+  else
+  {
+    responses[current_channel] = response;
+  }
 }
 
 inline void UpdateResponseTextures()
@@ -80,14 +90,7 @@ inline void UpdateResponseTextures()
 
     for (size_t j = 0; j < responses.size(); ++j)
     {
-      if ((int)j == lcurrent_channel)
-      {
-        irradiances[j] = response(intensity);
-      }
-      else
-      {
-        irradiances[j] = responses[j](intensity);
-      }
+      irradiances[j] = responses[j](intensity);
     }
 
     result_log.Log(irradiances[0], irradiances[1], irradiances[2]);
@@ -159,7 +162,6 @@ inline void UpdateResponseTextures()
     const unsigned char* data = dd.data;
     initial_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
     current_texture->Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
-
     last_channel = lcurrent_channel;
   }
   else
@@ -265,13 +267,13 @@ int main(int argc, char** argv)
   initial_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
   current_texture = std::make_shared<pangolin::GlTexture>(320, 240, GL_RGB, false, 0, GL_RGB, GL_UNSIGNED_BYTE);
 
-
   int target_index = 0;
   std::vector<ExposureTarget> targets;
+  const int target_channel = FLAGS_join_channels ? -1 : channel_order[2];
 
   for (int i = 0; i < 19; ++i)
   {
-    targets.push_back(ExposureTarget(50 + 10 * i, channel_order[2]));
+    targets.push_back(ExposureTarget(50 + 10 * i, target_channel));
   }
 
   camera->set_exposure_target(targets[target_index]);
@@ -460,11 +462,11 @@ int main(int argc, char** argv)
     std::vector<ResponseProblem> problems;
     builder.Build(problems);
 
-    LOG(INFO) << "Correspondences: " << problem->correspondences.size();
+    LOG(INFO) << "Created " << problems.size() << " problems";
 
     std::shared_ptr<PolynomialResponse> response;
     response = std::make_shared<PolynomialResponse>(3);
-    responses.resize(problems.size());
+    responses.resize(3);
 
     cv::Mat a, b;
     cv::resize(images[1 * targets.size() / 4].data(), a, cv::Size(320, 240), 0, 0, CV_INTER_NN);
@@ -477,9 +479,9 @@ int main(int argc, char** argv)
     bb.set_exposure(images[3 * targets.size() / 4].exposure());
 
     solved = false;
-    last_channel = -1;
+    last_channel = -2;
 
-    for (int i = 0; i < 3; ++i) responses[i].set_degree(3);
+    for (size_t i = 0; i < responses.size(); ++i) responses[i].set_degree(3);
 
     std::thread solver_thread([&]()
     {
@@ -494,6 +496,7 @@ int main(int argc, char** argv)
         ResponseCallback(*response);
         *problem = problems[i];
 
+        LOG(INFO) << "Correspondences: " << problem->correspondences.size();
         ResponseProblemSolver<PolynomialResponse> solver(problem);
         solver.set_inlier_threshold(FLAGS_inlier_thresh);
         solver.set_ransac_iterations(FLAGS_ransac_iters);
@@ -502,7 +505,17 @@ int main(int argc, char** argv)
 
         {
           std::lock_guard<std::mutex> lock(update_mutex);
-          responses[i] = *response;
+
+          if (FLAGS_join_channels)
+          {
+            responses[0] = *response;
+            responses[1] = *response;
+            responses[2] = *response;
+          }
+          else
+          {
+            responses[i] = *response;
+          }
         }
       }
 
@@ -532,6 +545,7 @@ int main(int argc, char** argv)
       irr_image.convertTo(byte_irr_image, CV_8UC3, 255.0);
       glClear(GL_COLOR_BUFFER_BIT);
 
+      response_updated = true;
       UpdateResponseTextures();
 
       camera_display->Activate();
@@ -559,7 +573,7 @@ int main(int argc, char** argv)
 
     if (!pangolin::ShouldQuit())
     {
-      current_channel = -1;
+      current_channel = -2;
 
       std::vector<PolynomialResponse> temp = responses;
       for (PolynomialResponse& response : responses) response.Reset();
