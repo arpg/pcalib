@@ -145,7 +145,7 @@ int main(int argc, char** argv)
   const Eigen::Vector2d grid_radius_sizes(grid_small_radius, grid_large_radius);
   Eigen::Map<const Eigen::VectorXi> grid_radius_map(grid_t.data(), grid.size());
 
-  const double radius_scale = 1.25;
+  const double radius_scale = 1.35;
 
   for (int i = 0; i < conic_count; ++i)
   {
@@ -277,11 +277,7 @@ int main(int argc, char** argv)
   {
     if (!capture_paused)
     {
-      try
-      {
-        raw_camera->Capture(images);
-      }
-      catch (const Exception&)
+      if (!raw_camera->Capture(images))
       {
         capture_ended = true;
         break;
@@ -361,31 +357,31 @@ int main(int argc, char** argv)
                 continue;
               }
 
-              const Eigen::Vector3f color = float_image.at<Eigen::Vector3f>(y, x);
+              const Eigen::Vector3f intensity = float_image.at<Eigen::Vector3f>(y, x);
 
-              if (color[0] < 0.01 || color[0] > 0.99 ||
-                  color[0] < 0.01 || color[0] > 0.99 ||
-                  color[0] < 0.01 || color[0] > 0.99)
+              if (intensity[0] < 0.01 || intensity[0] > 0.99 ||
+                  intensity[0] < 0.01 || intensity[0] > 0.99 ||
+                  intensity[0] < 0.01 || intensity[0] > 0.99)
               {
                 continue;
               }
 
-              const Eigen::Vector3f old_color = target_colors.at<Eigen::Vector3f>(ty, tx);
+              const Eigen::Vector3f old_irr = target_colors.at<Eigen::Vector3f>(ty, tx);
               const Eigen::Vector3f old_vcolor = vignetting_colors.at<Eigen::Vector3f>(y, x);
 
               const int old_weight = target_weights.at<uint16_t>(ty, tx);
               const int new_weight = old_weight + 1;
 
-              Eigen::Vector3f tcolor = color;
+              Eigen::Vector3f tcolor = intensity;
 
-              if (frame_number > 0)
-              {
-                tcolor[0] *= old_vcolor[0];
-                tcolor[1] *= old_vcolor[1];
-                tcolor[2] *= old_vcolor[2];
-              }
+              // if (frame_number > 0)
+              // {
+              //   tcolor[0] *= old_vcolor[0];
+              //   tcolor[1] *= old_vcolor[1];
+              //   tcolor[2] *= old_vcolor[2];
+              // }
 
-              const Eigen::Vector3f new_color = (old_weight * old_color + tcolor) / new_weight;
+              const Eigen::Vector3f new_color = (old_weight * old_irr + tcolor) / new_weight;
 
               target_weights.at<uint16_t>(ty, tx) = std::min(FLAGS_max_samples, new_weight);
               target_colors.at<Eigen::Vector3f>(ty, tx) = new_color;
@@ -394,15 +390,16 @@ int main(int argc, char** argv)
 
               if (frame_number > 0)
               {
-                vcolor[0] = old_color[0] / color[0];
-                vcolor[1] = old_color[1] / color[1];
-                vcolor[2] = old_color[2] / color[2];
+                vcolor[0] = intensity[0] / new_color[0];
+                vcolor[1] = intensity[1] / new_color[1];
+                vcolor[2] = intensity[2] / new_color[2];
               }
 
               const int old_vweight = vignetting_weights.at<uint16_t>(y, x);
               const int new_vweight = old_vweight + 1;
 
               const Eigen::Vector3f new_vcolor = (old_vweight * old_vcolor + vcolor) / new_vweight;
+              // const Eigen::Vector3f new_vcolor = vcolor;
 
               vignetting_weights.at<uint16_t>(y, x) = std::min(FLAGS_max_samples, new_vweight);
               vignetting_colors.at<Eigen::Vector3f>(y, x) = new_vcolor;
@@ -410,7 +407,7 @@ int main(int argc, char** argv)
               if (new_weight <= FLAGS_max_samples)
               {
                 Sample sample;
-                sample.color = color;
+                sample.color = intensity;
                 sample.uv = Eigen::Vector2i(x, y);
 
                 const int index =
@@ -424,7 +421,7 @@ int main(int argc, char** argv)
               if (new_vweight <= FLAGS_max_samples)
               {
                 Sample sample;
-                sample.color = color;
+                sample.color = intensity;
                 sample.uv = Eigen::Vector2i(tx, ty);
 
                 const int index =
@@ -497,6 +494,8 @@ int main(int argc, char** argv)
     pangolin::FinishFrame();
   }
 
+  vignetting_colors = cv::Scalar(1, 1, 1);
+
   for (int i = 0; i < FLAGS_max_iters && !pangolin::ShouldQuit(); ++i)
   {
     // update scene irradiance
@@ -528,9 +527,9 @@ int main(int argc, char** argv)
 
           const Eigen::Vector3f vig = vignetting_colors.at<Eigen::Vector3f>(iy, ix);
 
-          r[s] = sample.color[0] * vig[0];
-          g[s] = sample.color[1] * vig[1];
-          b[s] = sample.color[2] * vig[2];
+          r[s] = sample.color[0] / vig[0];
+          g[s] = sample.color[1] / vig[1];
+          b[s] = sample.color[2] / vig[2];
         }
 
         std::sort(r.begin(), r.end());
@@ -628,9 +627,9 @@ int main(int argc, char** argv)
 
           const Eigen::Vector3f irr = target_colors.at<Eigen::Vector3f>(ty, tx);
 
-          r[s] = irr[0] / sample.color[0];
-          g[s] = irr[1] / sample.color[1];
-          b[s] = irr[2] / sample.color[2];
+          r[s] = sample.color[0] / irr[0];
+          g[s] = sample.color[1] / irr[1];
+          b[s] = sample.color[2] / irr[2];
         }
 
         std::sort(r.begin(), r.end());
@@ -700,7 +699,13 @@ int main(int argc, char** argv)
     pangolin::FinishFrame();
   }
 
-  while (!pangolin::ShouldQuit())
+  // TODO: estimate vignetting with polynomial model
+
+  // TODO: write calibration file
+
+  capture_ended = false;
+
+  while (!pangolin::ShouldQuit() && !capture_ended)
   {
     if (!capture_paused)
     {
