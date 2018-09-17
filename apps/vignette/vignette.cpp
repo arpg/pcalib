@@ -26,7 +26,7 @@ DEFINE_double(grid_large_radius, 0.0, "target grid large circle radius");
 DEFINE_double(grid_small_radius, 0.0, "target grid small circle radius");
 DEFINE_string(grid_preset, "", "target grid preset name");
 DEFINE_int32(max_samples, 500, "max number of samples per pixel");
-DEFINE_int32(max_iters, 3, "max number of optimization steps");
+DEFINE_int32(max_iters, 5, "max number of optimization steps");
 
 struct Sample
 {
@@ -548,8 +548,6 @@ int main(int argc, char** argv)
 
     {
       camera_display.Activate();
-      unsigned char* data = images[0].data;
-      camera_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       camera_texture.RenderToViewportFlipY();
     }
 
@@ -569,30 +567,12 @@ int main(int argc, char** argv)
     }
 
     {
-      cv::Mat tmp;
-      vignetting_colors.convertTo(tmp, CV_8UC3, 255.0);
       vignetting_display.Activate();
-      unsigned char* data = tmp.data;
-      vignetting_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       vignetting_texture.RenderToViewportFlipY();
     }
 
     {
-      cv::Mat tmp;
-      vignetting_weights.convertTo(tmp, CV_8UC1, 255.0 / FLAGS_max_samples);
-      cv::cvtColor(tmp, tmp, CV_GRAY2BGR);
-
-      for (int y = 0; y < tmp.rows; ++y)
-      {
-        for (int x = 0; x < tmp.cols; ++x)
-        {
-          tmp.at<Pixel>(y, x) = colormap[tmp.at<Pixel>(y, x)[0]];
-        }
-      }
-
       coverage_display.Activate();
-      unsigned char* data = tmp.data;
-      coverage_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       coverage_texture.RenderToViewportFlipY();
     }
 
@@ -648,23 +628,11 @@ int main(int argc, char** argv)
 
     {
       camera_display.Activate();
-      unsigned char* data = images[0].data;
-      camera_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       camera_texture.RenderToViewportFlipY();
     }
 
     {
-      cv::Mat tmp;
-      target_colors.convertTo(tmp, CV_8UC3, 255.0);
-
-      if (target_reference_width < target_reference_height)
-      {
-        tmp = tmp.t();
-      }
-
       target_display.Activate();
-      unsigned char* data = tmp.data;
-      target_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       target_texture.RenderToViewport();
     }
 
@@ -678,21 +646,7 @@ int main(int argc, char** argv)
     }
 
     {
-      cv::Mat tmp;
-      vignetting_weights.convertTo(tmp, CV_8UC1, 255.0 / FLAGS_max_samples);
-      cv::cvtColor(tmp, tmp, CV_GRAY2BGR);
-
-      for (int y = 0; y < tmp.rows; ++y)
-      {
-        for (int x = 0; x < tmp.cols; ++x)
-        {
-          tmp.at<Pixel>(y, x) = colormap[tmp.at<Pixel>(y, x)[0]];
-        }
-      }
-
       coverage_display.Activate();
-      unsigned char* data = tmp.data;
-      coverage_texture.Upload(data, GL_RGB, GL_UNSIGNED_BYTE);
       coverage_texture.RenderToViewportFlipY();
     }
 
@@ -703,17 +657,19 @@ int main(int argc, char** argv)
 
   // TODO: write calibration file
 
+  cv::Mat result;
+  vignetting_colors.convertTo(result, CV_16UC3, 65535.0);
+  cv::cvtColor(result, result, CV_RGB2BGR);
+  cv::imwrite("vignetting.png", result);
+
   capture_ended = false;
+  capture_paused = true;
 
   while (!pangolin::ShouldQuit() && !capture_ended)
   {
     if (!capture_paused)
     {
-      try
-      {
-        raw_camera->Capture(images);
-      }
-      catch (const Exception&)
+      if (!raw_camera->Capture(images))
       {
         capture_ended = true;
         break;
@@ -722,6 +678,8 @@ int main(int argc, char** argv)
       // TODO: apply inverse response function
       // TODO: remove vignetting
     }
+
+    if (images.empty()) break;
 
     glClear(GL_COLOR_BUFFER_BIT);
 
