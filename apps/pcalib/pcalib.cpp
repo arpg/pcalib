@@ -212,22 +212,13 @@ int main(int argc, char** argv)
   camera->Capture(image);
   camera->Capture(image);
   camera->Capture(image);
+  camera->Capture(image);
 
   std::vector<double> channel_means(3);
   channel_means[0] = image.mean(0);
   channel_means[1] = image.mean(1);
   channel_means[2] = image.mean(2);
   const std::vector<size_t> channel_order = sort_indexes(channel_means);
-
-  std::cout << "means: " <<
-      channel_means[0] << " " <<
-      channel_means[1] << " " <<
-      channel_means[2] << std::endl;
-
-  std::cout << "order: " <<
-      channel_order[0] << " " <<
-      channel_order[1] << " " <<
-      channel_order[2] << std::endl;
 
   LOG(INFO) << "Creating pangolin displays...";
 

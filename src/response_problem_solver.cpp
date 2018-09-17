@@ -36,10 +36,6 @@ struct ResponseFunctor
       const T exp_a = T(correspondence.a.exposure);
       const T exp_b = T(correspondence.b.exposure);
 
-      // const T irr_ratio = irr_b / irr_a;
-      // const T exp_ratio = exp_b / exp_a;
-      // residuals[i] = irr_ratio - exp_ratio;
-
       const T exp_ratio = exp_a / exp_b;
       residuals[i] = irr_a - exp_ratio * irr_b;
     }
