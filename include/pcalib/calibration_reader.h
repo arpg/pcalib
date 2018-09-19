@@ -1,11 +1,10 @@
 #pragma once
 
 #include <string>
+#include <pcalib/calibration.h>
 
 namespace pcalib
 {
-
-class Calibration;
 
 class CalibrationReader
 {
@@ -13,7 +12,7 @@ class CalibrationReader
 
     CalibrationReader(const std::string& file);
 
-    void Read(Calibration& calibration);
+    void Read(Calibration<double>& calibration);
 };
 
 } // namespace pcalib

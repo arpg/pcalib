@@ -3,7 +3,7 @@
 #include <ceres/ceres.h>
 #include <Eigen/Cholesky>
 #include <pcalib/exception.h>
-#include <pcalib/polynomial_response.h>
+#include <pcalib/poly_response.h>
 #include <pcalib/response_problem.h>
 
 namespace pcalib
@@ -30,8 +30,8 @@ struct ResponseFunctor
       const T int_a = T(correspondence.a.intensity);
       const T int_b = T(correspondence.b.intensity);
 
-      const T irr_a = (*response)(coeffs, int_a);
-      const T irr_b = (*response)(coeffs, int_b);
+      const T irr_a = Response::GetResponse(coeffs, int_a);
+      const T irr_b = Response::GetResponse(coeffs, int_b);
 
       const T exp_a = T(correspondence.a.exposure);
       const T exp_b = T(correspondence.b.exposure);
@@ -41,7 +41,7 @@ struct ResponseFunctor
     }
 
     const T w = T(correspondences.size());
-    residuals[correspondences.size()] = w * (T(1) - (*response)(coeffs, T(1)));
+    residuals[correspondences.size()] = w * (T(1) - Response::GetResponse(coeffs, T(1)));
     return true;
   }
 
@@ -128,7 +128,7 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
   std::mt19937 rng;
   const int max_index  = problem_->correspondences.size() - 1;
   std::uniform_int_distribution<unsigned int> dist(0, max_index);
-  const int param_count = response->parameter_count();
+  const int param_count = Response::NumParams;
 
   std::vector<ResponseProblem::Correspondence> inliers;
   inliers.reserve(problem_->correspondences.size());
@@ -155,9 +155,7 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
       correspondences[j] = problem_->correspondences[index];
     }
 
-    std::vector<double> parameters = response->parameters();
-
-    Eigen::Map<Eigen::VectorXd> x(parameters.data(), param_count);
+    Eigen::VectorXd x = response->GetParams();
 
     for (size_t i = 0; i < correspondences.size(); ++i)
     {
@@ -168,7 +166,7 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
       const double ia = correspondences[i].a.intensity;
       const double ib = correspondences[i].b.intensity;
 
-      for (size_t j = 0; j < parameters.size(); ++j)
+      for (int j = 0; j < x.size(); ++j)
       {
         A(i, j) = std::pow(ia, j + 1) - r * std::pow(ib, j + 1);
       }
@@ -179,8 +177,8 @@ void ResponseProblemSolver<Response>::GetInliers(std::shared_ptr<Response> respo
     x = solver.solve(b);
     if (!(A * x).isApprox(b, 1E-6)) continue;
 
-    Response new_response(parameters.size());
-    new_response.set_parameters(parameters);
+    Response new_response;
+    new_response.SetParams(x);
     inliers.clear();
 
     for (const ResponseProblem::Correspondence& c : problem_->correspondences)
@@ -228,7 +226,7 @@ template <typename Response>
 void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response,
     ResponseProblem& subproblem)
 {
-  std::vector<double> parameters = response->parameters();
+  Eigen::VectorXd parameters = response->GetParams();
 
   ceres::Problem problem;
   problem.AddParameterBlock(parameters.data(), parameters.size());
@@ -254,11 +252,12 @@ void ResponseProblemSolver<Response>::Solve(std::shared_ptr<Response> response,
 
   std::cout << summary.FullReport() << std::endl;
 
-  Response new_response(parameters.size());
-  new_response.set_parameters(parameters);
+  Response new_response;
+  new_response.SetParams(parameters);
   *response = new_response;
 }
 
-template class ResponseProblemSolver<PolynomialResponse>;
+template class ResponseProblemSolver<Poly3Response<double>>;
+template class ResponseProblemSolver<Poly4Response<double>>;
 
 } // namespace pcalib

@@ -3,11 +3,11 @@
 #include <memory>
 #include <vector>
 #include <functional>
+#include <pcalib/response.h>
 
 namespace pcalib
 {
 
-class Response;
 class ResponseProblem;
 
 template <typename Response>

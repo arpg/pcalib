@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 #include <pcalib/calibration_writer.h>
 #include <pcalib/calibration.h>
-#include <pcalib/polynomial_response.h>
+#include <pcalib/poly_response.h>
+#include <pcalib/linear_response.h>
 
 namespace pcalib
 {
@@ -17,19 +18,19 @@ TEST(CalibrationWriter, Constructor)
 
 TEST(CalibrationWriter, Write)
 {
-  Calibration calibration;
+  Calibration<double> calibration;
 
   for (int i = 0; i < 3; ++i)
   {
-    // std::shared_ptr<PolynomialResponse> response;
-    // response = std::make_shared<PolynomialResponse>(3);
-    // response->set_parameters((i + 1) * Eigen::Vector3d(0.2, 1.1, 2.0));
-    // calibration.responses.push_back(response);
-
-    std::shared_ptr<LinearResponse> response;
-    response = std::make_shared<LinearResponse>();
+    std::shared_ptr<Poly3Response<double>> response;
+    response = std::make_shared<Poly3Response<double>>();
+    response->SetParams((i + 1) * Eigen::Vector3d(0.2, 1.1, 2.0));
     calibration.responses.push_back(response);
   }
+
+  std::shared_ptr<LinearResponse<double>> response;
+  response = std::make_shared<LinearResponse<double>>();
+  calibration.responses.push_back(response);
 
   std::shared_ptr<TrivialVignetting> vignetting;
   vignetting = std::make_shared<TrivialVignetting>();

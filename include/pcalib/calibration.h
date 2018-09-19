@@ -8,9 +8,10 @@
 namespace pcalib
 {
 
+template <typename Scalar = double>
 struct Calibration
 {
-  std::vector<std::shared_ptr<Response>> responses;
+  std::vector<std::shared_ptr<Response<Scalar>>> responses;
 
   std::shared_ptr<Vignetting> vignetting;
 };

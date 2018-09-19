@@ -64,8 +64,10 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/light_problem.h
   ${CPP_HEADER_DIR}/light_problem_builder.h
   ${CPP_HEADER_DIR}/light_problem_solver.h
-  ${CPP_HEADER_DIR}/polynomial_response.h
+  ${CPP_HEADER_DIR}/linear_response.h
+  ${CPP_HEADER_DIR}/poly_response.h
   ${CPP_HEADER_DIR}/response.h
+  ${CPP_HEADER_DIR}/response_impl.h
   ${CPP_HEADER_DIR}/response_problem.h
   ${CPP_HEADER_DIR}/response_problem_builder.h
   ${CPP_HEADER_DIR}/response_problem_solver.h
@@ -86,7 +88,6 @@ set(CPP_SOURCES
   ${CPP_SOURCE_DIR}/camera.cpp
   ${CPP_SOURCE_DIR}/light_problem_builder.cpp
   ${CPP_SOURCE_DIR}/light_problem_solver.cpp
-  ${CPP_SOURCE_DIR}/polynomial_response.cpp
   ${CPP_SOURCE_DIR}/response_problem_builder.cpp
   ${CPP_SOURCE_DIR}/response_problem_solver.cpp
   ${CPP_SOURCE_DIR}/vignetting_problem_builder.cpp

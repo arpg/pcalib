@@ -41,14 +41,14 @@ pangolin::View* current_display;
 std::shared_ptr<pangolin::GlTexture> camera_texture;
 std::shared_ptr<pangolin::GlTexture> initial_texture;
 std::shared_ptr<pangolin::GlTexture> current_texture;
-std::vector<PolynomialResponse> responses;
+std::vector<Poly3Response<double>> responses;
 int last_channel;
-PolynomialResponse last_response;
+Poly3Response<double> last_response;
 bool response_updated;
 std::mutex update_mutex;
 bool solved;
 
-inline void ResponseCallback(const PolynomialResponse& response)
+inline void ResponseCallback(const Poly3Response<double>& response)
 {
   std::lock_guard<std::mutex> lock(update_mutex);
   last_response = response;
@@ -69,8 +69,8 @@ inline void ResponseCallback(const PolynomialResponse& response)
 inline void UpdateResponseTextures()
 {
   int lcurrent_channel;
-  std::vector<PolynomialResponse> lresponses;
-  PolynomialResponse response;
+  std::vector<Poly3Response<double>> lresponses;
+  Poly3Response<double> response;
 
   {
     std::lock_guard<std::mutex> lock(update_mutex);
@@ -133,8 +133,11 @@ inline void UpdateResponseTextures()
             bi = responses[i](bp[i]);
           }
 
-          const double ir = bi / ai;
-          error[i] = std::abs(ir - er);
+          // const double ir = bi / ai;
+          // error[i] = std::abs(ir - er);
+
+          const double ei = er * ai;
+          error[i] = std::abs(ei - bi);
         }
       }
 
@@ -152,6 +155,9 @@ inline void UpdateResponseTextures()
       double cmin, cmax;
       cv::minMaxLoc(channels[i], &cmin, &cmax);
       emax[i] = cmax;
+      // cv::Scalar mean = cv::mean(channels[i]);
+      // emax[i] = 2.0 * mean[0];
+      // emax[i] = 1.0;
 
       if (emax[i] > 0) channels[i] /= emax[i];
     }
@@ -455,8 +461,8 @@ int main(int argc, char** argv)
 
     LOG(INFO) << "Created " << problems.size() << " problems";
 
-    std::shared_ptr<PolynomialResponse> response;
-    response = std::make_shared<PolynomialResponse>(3);
+    std::shared_ptr<Poly3Response<double>> response;
+    response = std::make_shared<Poly3Response<double>>();
     responses.resize(3);
 
     cv::Mat a, b;
@@ -472,8 +478,6 @@ int main(int argc, char** argv)
     solved = false;
     last_channel = -2;
 
-    for (size_t i = 0; i < responses.size(); ++i) responses[i].set_degree(3);
-
     std::thread solver_thread([&]()
     {
       for (size_t i = 0; i < problems.size(); ++i)
@@ -488,7 +492,7 @@ int main(int argc, char** argv)
         *problem = problems[i];
 
         LOG(INFO) << "Correspondences: " << problem->correspondences.size();
-        ResponseProblemSolver<PolynomialResponse> solver(problem);
+        ResponseProblemSolver<Poly3Response<double>> solver(problem);
         solver.set_inlier_threshold(FLAGS_inlier_thresh);
         solver.set_ransac_iterations(FLAGS_ransac_iters);
         solver.RegisterCallback(ResponseCallback);
@@ -566,8 +570,8 @@ int main(int argc, char** argv)
     {
       current_channel = -2;
 
-      std::vector<PolynomialResponse> temp = responses;
-      for (PolynomialResponse& response : responses) response.Reset();
+      std::vector<Poly3Response<double>> temp = responses;
+      for (Poly3Response<double>& response : responses) response.Reset();
 
       response_updated = true;
       UpdateResponseTextures();
@@ -579,13 +583,13 @@ int main(int argc, char** argv)
 
       camera->set_exposure(3 * images[images.size() / 4].exposure());
 
-      Calibration calibration;
+      Calibration<double> calibration;
       calibration.responses.resize(3);
 
       for (size_t i = 0; i < calibration.responses.size(); ++i)
       {
         calibration.responses[i] =
-            std::make_shared<PolynomialResponse>(responses[i]);
+            std::make_shared<Poly3Response<double>>(responses[i]);
       }
 
       CalibrationWriter writer(FLAGS_output);

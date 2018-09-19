@@ -4,12 +4,11 @@
 #include <string>
 #include <fstream>
 #include <tinyxml2.h>
+#include <pcalib/calibration.h>
 
 namespace pcalib
 {
 
-class Calibration;
-class Response;
 class Vignetting;
 
 class CalibrationWriter
@@ -20,15 +19,21 @@ class CalibrationWriter
 
     const std::string& file() const;
 
-    void Write(const Calibration& calibration);
+    void Write(const Calibration<double>& calibration);
 
   protected:
 
     void PrepareWrite();
 
-    void WriteResponses(const Calibration& calibration);
+    void WriteResponses(const Calibration<double>& calibration);
 
-    void WriteVignetting(const Calibration& calibration);
+    void WriteResponse(int channel, const Response<double>& response);
+
+    void WriteVignetting(const Calibration<double>& calibration);
+
+    void WriteVignetting(const Vignetting& vignetting);
+
+    void WriteData(tinyxml2::XMLElement* element, const Eigen::MatrixXd& value);
 
     void FinishWrite();
 
