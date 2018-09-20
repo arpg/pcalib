@@ -13,7 +13,7 @@ struct Calibration
 {
   std::vector<std::shared_ptr<Response<Scalar>>> responses;
 
-  std::shared_ptr<Vignetting<Scalar>> vignetting;
+  std::vector<std::shared_ptr<Vignetting<Scalar>>> vignetting;
 };
 
 } // namespace pcalib

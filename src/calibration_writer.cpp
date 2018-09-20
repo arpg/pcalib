@@ -66,16 +66,18 @@ void CalibrationWriter::WriteResponse(int channel,
 
 void CalibrationWriter::WriteVignetting(const Calibration<double>& calibration)
 {
-  if (calibration.vignetting)
+  for (size_t i = 0; i < calibration.vignetting.size(); ++i)
   {
-    WriteVignetting(*calibration.vignetting);
+    WriteVignetting(i, *calibration.vignetting[i]);
   }
 }
 
-void CalibrationWriter::WriteVignetting(const Vignetting<double>& vignetting)
+void CalibrationWriter::WriteVignetting(int channel,
+    const Vignetting<double>& vignetting)
 {
   tinyxml2::XMLElement* root = document_->FirstChildElement("pcalib");
   tinyxml2::XMLElement* element = document_->NewElement("vignetting");
+  element->SetAttribute("channel", channel);
   element->SetAttribute("type", vignetting.Type().c_str());
   root->InsertEndChild(element);
 
@@ -92,7 +94,7 @@ void CalibrationWriter::WriteVignetting(const Vignetting<double>& vignetting)
 
   if (vignetting.NumParams() > 0)
   {
-    // WriteData(pelement, vignetting.GetParams());
+    WriteData(pelement, vignetting.GetParams());
   }
 }
 

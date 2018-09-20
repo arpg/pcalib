@@ -29,7 +29,7 @@ class CalibrationWriter
 
     void WriteVignetting(const Calibration<double>& calibration);
 
-    void WriteVignetting(const Vignetting<double>& vignetting);
+    void WriteVignetting(int channel, const Vignetting<double>& vignetting);
 
     void WriteData(tinyxml2::XMLElement* element, const Eigen::MatrixXd& value);
 
