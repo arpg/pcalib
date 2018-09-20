@@ -58,6 +58,7 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/calibration_writer.h
   ${CPP_HEADER_DIR}/controller.h
   ${CPP_HEADER_DIR}/camera.h
+  ${CPP_HEADER_DIR}/dense_vignetting.h
   ${CPP_HEADER_DIR}/exception.h
   ${CPP_HEADER_DIR}/image.h
   ${CPP_HEADER_DIR}/light.h
@@ -66,12 +67,15 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/light_problem_solver.h
   ${CPP_HEADER_DIR}/linear_response.h
   ${CPP_HEADER_DIR}/poly_response.h
+  ${CPP_HEADER_DIR}/poly_vignetting.h
   ${CPP_HEADER_DIR}/response.h
   ${CPP_HEADER_DIR}/response_impl.h
   ${CPP_HEADER_DIR}/response_problem.h
   ${CPP_HEADER_DIR}/response_problem_builder.h
   ${CPP_HEADER_DIR}/response_problem_solver.h
+  ${CPP_HEADER_DIR}/uniform_vignetting.h
   ${CPP_HEADER_DIR}/vignetting.h
+  ${CPP_HEADER_DIR}/vignetting_impl.h
   ${CPP_HEADER_DIR}/vignetting_problem.h
   ${CPP_HEADER_DIR}/vignetting_problem_builder.h
   ${CPP_HEADER_DIR}/vignetting_problem_solver.h

@@ -31,7 +31,7 @@ class LinearResponse : public ResponseImpl<Scalar, LinearResponse<Scalar>>
     }
 
     template <typename T>
-    inline static void ResetParameters(T*)
+    static inline void ResetParameters(T*)
     {
     }
 };

@@ -19,10 +19,13 @@ set(CPP_SOURCES
   calibration_reader_test.cpp
   calibration_writer_test.cpp
   controller_test.cpp
+  dense_vignetting_test.cpp
   exception_test.cpp
   linear_response_test.cpp
   poly_response_test.cpp
+  poly_vignetting_test.cpp
   response_test.cpp
+  uniform_vignetting_test.cpp
 )
 
 # build library

@@ -8,8 +8,7 @@ namespace pcalib
 {
 
 template <typename Scalar>
-class Poly3Response :
-    public ResponseImpl<Scalar, Poly3Response<Scalar>>
+class Poly3Response : public ResponseImpl<Scalar, Poly3Response<Scalar>>
 {
   public:
 
@@ -28,7 +27,7 @@ class Poly3Response :
     }
 
     template <typename T>
-    inline static T GetResponse(const T* params, T value)
+    static inline T GetResponse(const T* params, T value)
     {
       T pow = value;
       T result = T(0);
@@ -43,7 +42,7 @@ class Poly3Response :
     }
 
     template <typename T>
-    inline static void ResetParameters(T* params)
+    static inline void ResetParameters(T* params)
     {
       Eigen::Map<Eigen::Vector3d> x(params);
       x = Eigen::Vector3d(1, 0, 0);
@@ -51,8 +50,7 @@ class Poly3Response :
 };
 
 template <typename Scalar>
-class Poly4Response :
-    public ResponseImpl<Scalar, Poly4Response<Scalar>>
+class Poly4Response : public ResponseImpl<Scalar, Poly4Response<Scalar>>
 {
   public:
 
@@ -71,7 +69,7 @@ class Poly4Response :
     }
 
     template <typename T>
-    inline static T GetResponse(const T* params, T value)
+    static inline T GetResponse(const T* params, T value)
     {
       T pow = value;
       T result = T(0);
@@ -86,7 +84,7 @@ class Poly4Response :
     }
 
     template <typename T>
-    inline static void ResetParameters(T* params)
+    static inline void ResetParameters(T* params)
     {
       Eigen::Map<Eigen::Vector4d> x(params);
       x = Eigen::Vector4d(1, 0, 0, 0);

@@ -34,6 +34,7 @@ class ResponseImpl : public Response<Scalar>
     void Initialize()
     {
       this->type_ = std::string(Derived::Type);
+      this->range_ = Eigen::Vector2d(0, 255);
       this->params_.resize(Derived::NumParams);
       Derived::ResetParameters(this->params_.data());
     }

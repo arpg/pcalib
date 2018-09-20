@@ -32,9 +32,9 @@ TEST(CalibrationWriter, Write)
   response = std::make_shared<LinearResponse<double>>();
   calibration.responses.push_back(response);
 
-  std::shared_ptr<TrivialVignetting> vignetting;
-  vignetting = std::make_shared<TrivialVignetting>();
-  calibration.vignetting = vignetting;
+  // std::shared_ptr<TrivialVignetting> vignetting;
+  // vignetting = std::make_shared<TrivialVignetting>();
+  // calibration.vignetting = vignetting;
 
   const std::string file = "test.xml";
   CalibrationWriter writer(file);

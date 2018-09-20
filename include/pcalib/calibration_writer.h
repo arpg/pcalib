@@ -9,8 +9,6 @@
 namespace pcalib
 {
 
-class Vignetting;
-
 class CalibrationWriter
 {
   public:
@@ -31,7 +29,7 @@ class CalibrationWriter
 
     void WriteVignetting(const Calibration<double>& calibration);
 
-    void WriteVignetting(const Vignetting& vignetting);
+    void WriteVignetting(const Vignetting<double>& vignetting);
 
     void WriteData(tinyxml2::XMLElement* element, const Eigen::MatrixXd& value);
 

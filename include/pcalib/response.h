@@ -20,7 +20,7 @@ class Response
     {
     }
 
-    const std::string& Type() const
+    inline const std::string& Type() const
     {
       return type_;
     }
@@ -30,12 +30,18 @@ class Response
       return params_.size();
     }
 
-    inline const Eigen::VectorXd& GetParams() const
+    inline const Eigen::Vector2d& GetRange() const
     {
-      return params_;
+      return range_;
     }
 
-    inline Eigen::VectorXd& GetParams()
+    inline void SetRange(const Eigen::Vector2d& range)
+    {
+      PCALIB_ASSERT(range[0] < range[1]);
+      range_ = range;
+    }
+
+    inline const Eigen::VectorXd& GetParams() const
     {
       return params_;
     }
@@ -53,6 +59,8 @@ class Response
   protected:
 
     std::string type_;
+
+    Eigen::Vector2d range_;
 
     Eigen::VectorXd params_;
 };

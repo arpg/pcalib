@@ -1,69 +1,76 @@
 #pragma once
 
-#include<vector>
+#include <Eigen/Eigen>
 #include <pcalib/exception.h>
 #include <pcalib/visitor.h>
 
 namespace pcalib
 {
 
-class TrivialVignetting;
-
-class VignettingVisitor
-{
-  public:
-
-    virtual void Visit(const TrivialVignetting& vignetting) = 0;
-};
-
-
+template <typename Scalar>
 class Vignetting
 {
   public:
 
-    virtual int parameter_count() const = 0;
-
-    virtual std::vector<double> parameters() const = 0;
-
-    virtual void set_parameters(const std::vector<double>& params) = 0;
-
-    virtual void Accept(VignettingVisitor& visitor) const = 0;
-};
-
-class TrivialVignetting : public Vignetting
-{
-  public:
-
-    int parameter_count() const override
+    Vignetting(int width, int height) :
+      width_(width),
+      height_(height)
     {
-      return 0;
     }
 
-    std::vector<double> parameters() const override
+    virtual ~Vignetting()
     {
-      return std::vector<double>();
     }
 
-    void set_parameters(const std::vector<double>& params) override
+    inline int Width() const
     {
-      PCALIB_ASSERT_MSG(!params.empty(), "invalid parameter count");
+      return width_;
     }
 
-    void Accept(VignettingVisitor& visitor) const override
+    inline int Height() const
     {
-      return visitor.Visit(*this);
+      return height_;
     }
 
-    inline double operator()(double x, double y) const
+    inline const std::string& Type() const
     {
-      return 1.0;
+      return type_;
     }
 
-    template <typename Scalar>
-    Scalar operator()(const Scalar* parameters, Scalar x, Scalar y) const
+    inline int NumParams() const
     {
-      return Scalar(1);
+      return params_.size();
     }
+
+    inline const Eigen::VectorXd& GetParams() const
+    {
+      return params_;
+    }
+
+    inline Eigen::VectorXd& GetParams()
+    {
+      return params_;
+    }
+
+    inline void SetParams(const Eigen::VectorXd& params)
+    {
+      PCALIB_ASSERT(params.size() == params_.size());
+      params_ = params;
+    }
+
+    virtual Scalar operator()(Scalar u, Scalar v) const = 0;
+
+    virtual void Reset() = 0;
+
+  protected:
+
+    int width_;
+
+    int height_;
+
+    std::string type_;
+
+    Eigen::VectorXd params_;
 };
 
 } // namespace pcalib

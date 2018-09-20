@@ -51,6 +51,10 @@ void CalibrationWriter::WriteResponse(int channel,
   element->SetAttribute("type", response.Type().c_str());
   root->InsertEndChild(element);
 
+  tinyxml2::XMLElement* relement = document_->NewElement("range");
+  element->InsertEndChild(relement);
+  WriteData(relement, response.GetRange());
+
   tinyxml2::XMLElement* pelement = document_->NewElement("params");
   element->InsertEndChild(pelement);
 
@@ -68,17 +72,25 @@ void CalibrationWriter::WriteVignetting(const Calibration<double>& calibration)
   }
 }
 
-void CalibrationWriter::WriteVignetting(const Vignetting& vignetting)
+void CalibrationWriter::WriteVignetting(const Vignetting<double>& vignetting)
 {
   tinyxml2::XMLElement* root = document_->FirstChildElement("pcalib");
   tinyxml2::XMLElement* element = document_->NewElement("vignetting");
-  // element->SetAttribute("type", vignetting->Type());
+  element->SetAttribute("type", vignetting.Type().c_str());
   root->InsertEndChild(element);
+
+  tinyxml2::XMLElement* welement = document_->NewElement("width");
+  element->InsertEndChild(welement);
+  welement->SetText(vignetting.Width());
+
+  tinyxml2::XMLElement* helement = document_->NewElement("height");
+  element->InsertEndChild(helement);
+  helement->SetText(vignetting.Width());
 
   tinyxml2::XMLElement* pelement = document_->NewElement("params");
   element->InsertEndChild(pelement);
 
-  if (vignetting.parameter_count() > 0)
+  if (vignetting.NumParams() > 0)
   {
     // WriteData(pelement, vignetting.GetParams());
   }
