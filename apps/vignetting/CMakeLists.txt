@@ -1,2 +1,0 @@
-add_executable(vignetting vignetting.cpp)
-target_link_libraries(vignetting pcalib)
