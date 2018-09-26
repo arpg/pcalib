@@ -18,6 +18,7 @@ using namespace pcalib;
 
 DEFINE_string(cam, "", "HAL camera uri");
 DEFINE_string(calib, "", "camera calibration XML file");
+DEFINE_string(pcalib, "", "input photometric calibration file");
 DEFINE_int64(grid_seed, 0, "target grid random seed");
 DEFINE_int32(grid_width, 0, "target grid resolution width");
 DEFINE_int32(grid_height, 0, "target grid resolution height");
@@ -70,6 +71,25 @@ int main(int argc, char** argv)
   const int height = raw_camera->Height();
   const int pitch = width * sizeof(unsigned char);
   const double image_aspect_ratio = double(width) / height;
+
+  // read photometric calibration
+
+  Calibration<double> calibration;
+
+  std::shared_ptr<Poly3Response<double>> r_response;
+  r_response = std::make_shared<Poly3Response<double>>();
+  r_response->SetParams(Eigen::Vector3d(0.519592, -0.110956, 0.591365));
+  calibration.responses.push_back(r_response);
+
+  std::shared_ptr<Poly3Response<double>> g_response;
+  g_response = std::make_shared<Poly3Response<double>>();
+  g_response->SetParams(Eigen::Vector3d(0.519592, -0.110956, 0.591365));
+  calibration.responses.push_back(g_response);
+
+  std::shared_ptr<Poly3Response<double>> b_response;
+  b_response = std::make_shared<Poly3Response<double>>();
+  b_response->SetParams(Eigen::Vector3d(0.563674, 0.220705, 0.215621));
+  calibration.responses.push_back(b_response);
 
   // create calibu target
 
@@ -245,10 +265,12 @@ int main(int argc, char** argv)
 
   bool capture_ended = false;
   bool capture_paused = false;
+  bool remove_vignetting = true;
 
   pangolin::RegisterKeyPressCallback(' ', [&](){ capture_paused = !capture_paused; });
   pangolin::RegisterKeyPressCallback('[', [&](){ capture_ended  = !capture_ended; });
   pangolin::RegisterKeyPressCallback(']', [&](){ capture_ended  = !capture_ended; });
+  pangolin::RegisterKeyPressCallback('v', [&](){ remove_vignetting = !remove_vignetting; });
 
   // capture images
 
@@ -283,14 +305,29 @@ int main(int argc, char** argv)
         break;
       }
 
-      // TODO: apply inverse response function
-
       cv::Mat image, float_image;
       PCALIB_ASSERT(images.size() == 1);
-      const cv::Mat& cimage = images[0];
+      cv::Mat& cimage = images[0];
       PCALIB_ASSERT(cimage.type() == CV_8UC3);
       cimage.convertTo(float_image, CV_32FC3, 1.0 / 255.0);
       cv::cvtColor(cimage, image, CV_RGB2GRAY);
+
+      for (int y = 0; y < cimage.rows; ++y)
+      {
+        for (int x = 0; x < cimage.cols; ++x)
+        {
+          Eigen::Vector3f values = float_image.at<Eigen::Vector3f>(y, x);
+
+          for (int c = 0; c < cimage.channels(); ++c)
+          {
+            values[c] = (*calibration.responses[c])(values[c]);
+          }
+
+          float_image.at<Eigen::Vector3f>(y, x) = values;
+        }
+      }
+
+      float_image.convertTo(cimage, CV_8UC3, 255.0);
 
       processing.Process(image.data, width, height, pitch);
       finder.Find(processing);
@@ -663,7 +700,7 @@ int main(int argc, char** argv)
   cv::imwrite("vignetting.png", result);
 
   capture_ended = false;
-  capture_paused = true;
+  capture_paused = false;
 
   while (!pangolin::ShouldQuit() && !capture_ended)
   {
@@ -676,7 +713,34 @@ int main(int argc, char** argv)
       }
 
       // TODO: apply inverse response function
-      // TODO: remove vignetting
+      cv::Mat float_image;
+      PCALIB_ASSERT(images.size() == 1);
+      cv::Mat& cimage = images[0];
+      PCALIB_ASSERT(cimage.type() == CV_8UC3);
+      cimage.convertTo(float_image, CV_32FC3, 1.0 / 255.0);
+
+      for (int y = 0; y < cimage.rows; ++y)
+      {
+        for (int x = 0; x < cimage.cols; ++x)
+        {
+          Eigen::Vector3f values = float_image.at<Eigen::Vector3f>(y, x);
+          const Eigen::Vector3f& vig = vignetting_colors.at<Eigen::Vector3f>(y, x);
+
+          for (int c = 0; c < cimage.channels(); ++c)
+          {
+            values[c] = (*calibration.responses[c])(values[c]);
+
+            if (remove_vignetting && vig[c] > 0)
+            {
+              values[c] = values[c] / vig[c];
+            }
+          }
+
+          float_image.at<Eigen::Vector3f>(y, x) = values;
+        }
+      }
+
+      float_image.convertTo(cimage, CV_8UC3, 255.0);
     }
 
     if (images.empty()) break;

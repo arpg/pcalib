@@ -103,13 +103,17 @@ void Camera::CreateExposureController()
 {
   exposure_controller_.set_setpoint(exposure_target_.intensity);
 
-  // orbbec
+  // // orbbec
   // exposure_controller_.set_proportional_gain(0.25);
   // exposure_controller_.set_integral_gain(0.02);
 
+  // exposure_controller_.set_integral_delay(4);
+  // exposure_controller_.set_upper_bound(500);
+  // exposure_controller_.set_lower_bound(1);
+
   // // xtion
   // exposure_controller_.set_proportional_gain(0.05);
-  // exposure_controller_.set_integral_gain(0.01);
+  // exposure_controller_.set_integral_gain(0.0075);
 
   // exposure_controller_.set_integral_delay(4);
   // exposure_controller_.set_upper_bound(500);
